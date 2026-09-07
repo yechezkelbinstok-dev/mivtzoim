@@ -135,18 +135,19 @@ check('addAddress: filing into a route appends it to that route once', () => {
   assert.equal(db.currentWeek.routes['א'].addressIds.length, 3);
 });
 
-check('coverageStatus: never / fresh / stale / old', () => {
+check('coverageStatus: visited or never, nothing in between', () => {
   const db = emptyDb();
   importWeek(db, parseCsv(sampleCsv), '2026-09-05');
   const id = slugify('101 First Street');
   const addr = db.addresses.find((a) => a.id === id);
   assert.equal(coverageStatus(addr), 'never');
 
-  addr.visits.push({ date: '2026-09-01', week: 'w', chavrusa: '', bochurim: '', answered: null, jewish: null, interest: null, notes: '' });
-  assert.equal(coverageStatus(addr), 'fresh');
+  addr.visits.push({ date: '2026-09-01', week: 'w', chavrusa: '', answered: null, jewish: null, interest: null, notes: '' });
+  assert.equal(coverageStatus(addr), 'visited');
 
-  addr.visits[0].date = '2026-01-01';
-  assert.equal(coverageStatus(addr), 'old');
+  // however long ago, it is still just "visited" — the date is in the row
+  addr.visits[0].date = '2019-01-01';
+  assert.equal(coverageStatus(addr), 'visited');
 });
 
 check('bochurimFor falls back to a visit written before the per-week split', () => {

@@ -37,9 +37,7 @@ function renderFilterOptions() {
   build('fRoute', [['', t('route')], ...[...codes].sort().map((c) => [c, c])]);
   build('fCoverage', [
     ['', t('coverage')],
-    ['fresh', t('cov_fresh')],
-    ['stale', t('cov_stale')],
-    ['old', t('cov_old')],
+    ['visited', t('cov_visited')],
     ['never', t('cov_never')],
   ]);
   build('fList', [
@@ -111,7 +109,7 @@ function renderEmptyState() {
 function renderTiles() {
   renderEmptyState();
   const addresses = store.get().addresses;
-  const counts = { fresh: 0, stale: 0, old: 0, never: 0 };
+  const counts = { visited: 0, never: 0 };
   let jewish = 0;
   let onList = 0;
   for (const a of addresses) {
@@ -122,9 +120,7 @@ function renderTiles() {
   }
   const tiles = [
     { num: addresses.length, cap: t('addresses'), tone: '' },
-    { num: counts.fresh, cap: coverageLabel('fresh'), tone: 'fresh' },
-    { num: counts.stale, cap: coverageLabel('stale'), tone: 'stale' },
-    { num: counts.old, cap: coverageLabel('old'), tone: 'old' },
+    { num: counts.visited, cap: coverageLabel('visited'), tone: 'fresh' },
     { num: counts.never, cap: coverageLabel('never'), tone: 'never' },
     { num: jewish, cap: t('jewish_yes'), tone: '' },
     { num: onList, cap: t('f_list'), tone: '' },
@@ -174,7 +170,6 @@ function renderRows() {
 
   for (const addr of rows) {
     const v = latestVisit(addr);
-    const cov = coverageStatus(addr);
     const tr = document.createElement('tr');
 
     // Same treatment as the printed sheet: a list entry is bold and carries
@@ -192,11 +187,6 @@ function renderRows() {
     }
     tr.appendChild(addrCell);
     tr.appendChild(td(addr.on_shliach_list ? '★' : ''));
-
-    const covCell = document.createElement('td');
-    covCell.innerHTML = `<span class="cov"><span class="state-dot" data-cov="${cov}"></span><span></span></span>`;
-    covCell.querySelector('.cov span:last-child').textContent = coverageLabel(cov);
-    tr.appendChild(covCell);
 
     tr.appendChild(td(v ? `${formatDate(v.date)}` : '—', 'date'));
     tr.appendChild(td(v && v.chavrusa ? v.chavrusa : addr.last_route || ''));

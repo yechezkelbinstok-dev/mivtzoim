@@ -258,12 +258,8 @@ export function daysSince(dateStr) {
   return Math.floor((now - then) / 86400000);
 }
 
-// 'never' | 'fresh' | 'stale' | 'old'
+// Either it has been knocked or it hasn't. Time-since buckets were more
+// precision than the work needs; the last-visit date is in the row already.
 export function coverageStatus(addr) {
-  const v = latestVisit(addr);
-  if (!v) return 'never';
-  const d = daysSince(v.date);
-  if (d <= 60) return 'fresh';
-  if (d <= 180) return 'stale';
-  return 'old';
+  return latestVisit(addr) ? 'visited' : 'never';
 }

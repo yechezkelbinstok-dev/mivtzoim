@@ -397,6 +397,7 @@ const tiles = await page.$$eval('.tile', (els) =>
 );
 assert.equal(tiles[0].num, '6');
 assert.equal(tiles.find((t) => t.cap === 'טרם ביקרו').num, '3');
+assert.equal(tiles.find((t) => t.cap === 'ביקרו').num, '3');
 assert.equal(tiles.find((t) => t.cap === '★ רשימה').num, '1');
 check('dashboard tiles count addresses, coverage and list membership');
 
@@ -418,16 +419,16 @@ check('language toggle switches the document to english and ltr');
 
 const enTiles = await page.$$eval('.tile .cap', (els) => els.map((e) => e.textContent));
 assert.ok(
-  enTiles.includes('Never visited'),
-  `expected a "Never visited" tile, got ${enTiles.join(', ')}`
+  enTiles.includes('Never visited') && enTiles.includes('Visited'),
+  `expected Visited / Never visited tiles, got ${enTiles.join(', ')}`
 );
 const enHeaders = await page.$$eval('thead th', (els) => els.map((e) => e.textContent));
 assert.ok(enHeaders.includes('Address'), `expected Address header, got ${enHeaders.join(', ')}`);
-assert.ok(enHeaders.includes('Coverage'));
+assert.ok(enHeaders.includes('Last visit'));
 check('tiles and table headers follow the language');
 
 const enCoverage = await page.$$eval('#fCoverage option', (els) => els.map((e) => e.textContent));
-assert.ok(enCoverage.includes('Under 2 months') && enCoverage.includes('Never visited'));
+assert.ok(enCoverage.includes('Visited') && enCoverage.includes('Never visited'));
 check('filter dropdowns follow the language');
 
 const addrCell = await page.textContent('#rows tr:first-child td:first-child');
