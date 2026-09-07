@@ -1,0 +1,9 @@
+node_modules
+node_modules/
+.DS_Store
+
+# Nothing containing real addresses, names, or visit data belongs in this
+# repository. Data lives only in the private mivtzoim-data repo.
+*.csv
+db.json
+out/

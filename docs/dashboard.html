@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>מבצעים — לוח</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">מבצעים</div>
+      <nav class="tabs">
+        <a href="index.html">רישום</a>
+        <a href="dashboard.html" aria-current="page">לוח</a>
+      </nav>
+      <div class="spacer"></div>
+      <div class="save-state" id="saveState" data-state="idle">
+        <span class="dot"></span><span id="saveText"></span>
+      </div>
+      <button class="icon-btn" id="tokenBtn" title="טוקן">🔑</button>
+    </header>
+
+    <main class="board">
+      <div class="tiles" id="tiles"></div>
+
+      <div class="filters">
+        <input type="search" id="search" placeholder="חיפוש כתובת" autocomplete="off" />
+        <select id="fRoute"><option value="">מסלול</option></select>
+        <select id="fCoverage">
+          <option value="">כיסוי</option>
+          <option value="fresh">עדכני</option>
+          <option value="stale">מתיישן</option>
+          <option value="old">ישן</option>
+          <option value="never">טרם</option>
+        </select>
+        <select id="fList">
+          <option value="">הכל</option>
+          <option value="list">★ רשימה</option>
+          <option value="cold">דלת חדשה</option>
+        </select>
+        <div class="spacer"></div>
+        <span class="save-state" id="rowCount"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>כתובת</th>
+              <th>רשימה</th>
+              <th>כיסוי</th>
+              <th>ביקור אחרון</th>
+              <th>מסלול</th>
+              <th>ענו</th>
+              <th>יהודי</th>
+              <th>עניין</th>
+              <th>ביקורים</th>
+              <th>הערות</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </main>
+
+    <div class="overlay" id="tokenOverlay" hidden>
+      <div class="dialog narrow">
+        <div class="key-icon">🔑</div>
+        <h2>טוקן</h2>
+        <input type="password" id="tokenInput" autocomplete="off" spellcheck="false" />
+        <div class="status-label" id="tokenStatus"></div>
+        <div class="row">
+          <button class="btn-primary" id="tokenSave">אישור</button>
+          <button class="btn-ghost" id="tokenClear">מחיקה</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="js/dashboard.js"></script>
+  </body>
+</html>
