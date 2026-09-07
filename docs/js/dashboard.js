@@ -83,8 +83,14 @@ async function init() {
 async function start() {
   try {
     await store.load();
-  } catch {
-    ui.open();
+  } catch (e) {
+    // A failed read is an error, not an empty database. Never render the page
+    // as though there were no data.
+    if (e.status === 401 || e.status === 403) {
+      ui.open();
+    } else {
+      showLoadError();
+    }
     return;
   }
   renderFilterOptions();
@@ -190,4 +196,11 @@ function td(text, cls) {
 function formatDate(iso) {
   const [y, m, d] = iso.split('-');
   return `${Number(d)}.${Number(m)}.${y}`;
+}
+
+// Surfaces a failed load instead of silently showing an empty page.
+function showLoadError() {
+  const box = document.getElementById('saveState');
+  box.dataset.state = 'error';
+  document.getElementById('saveText').textContent = t('load_failed');
 }

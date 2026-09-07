@@ -15,6 +15,7 @@ const STRINGS = {
     save_saving: 'שומר',
     save_saved: 'נשמר',
     save_error: 'שגיאה',
+    load_failed: 'טעינה נכשלה',
 
     import: 'ייבוא',
     import_title: 'ייבוא מסלולים',
@@ -71,6 +72,7 @@ const STRINGS = {
     save_saving: 'Saving',
     save_saved: 'Saved',
     save_error: 'Error',
+    load_failed: 'Load failed',
 
     import: 'Import',
     import_title: 'Import routes',

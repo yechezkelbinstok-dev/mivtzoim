@@ -68,6 +68,7 @@ const ctx = await browser.newContext({ locale: 'he-IL' });
 
 // ---- stubbed GitHub ----
 let stored = null; // { content: <utf8 string>, sha }
+let readFailure = 0; // when set, the db read returns this status
 let shaN = 0;
 const puts = [];
 
@@ -93,17 +94,14 @@ await ctx.route('https://api.github.com/**', async (route) => {
     return json(200, { content: { sha: 'vault1' } });
   }
 
-  // directory listing — how the page learns db.json's sha without reading it
-  if (/\/mivtzoim-data\/contents\/(\?|$)/.test(url)) {
-    return json(200, stored ? [{ name: 'db.json', sha: stored.sha, type: 'file' }] : []);
-  }
-
   if (url.includes('/contents/db.json')) {
     if (req.method() === 'GET') {
+      if (readFailure) return json(readFailure, { message: 'boom' });
       if (!stored) return json(404, { message: 'Not Found' });
-      // the page asks for the raw media type, which has no 1 MB ceiling
-      assert.equal(req.headers()['accept'], 'application/vnd.github.raw');
-      return route.fulfill({ status: 200, contentType: 'application/json', body: stored.content });
+      return json(200, {
+        content: Buffer.from(stored.content, 'utf8').toString('base64'),
+        sha: stored.sha,
+      });
     }
     if (req.method() === 'PUT') {
       const body = JSON.parse(req.postData());
@@ -302,6 +300,23 @@ await page.reload();
 await page.waitForFunction(() => document.querySelectorAll('.route-chip').length === 2);
 assert.equal(await page.isHidden('#gateOverlay'), true);
 check('the password is asked once per machine, not every visit');
+
+// ---- 6c. a failed read must never look like an empty database ----
+readFailure = 500;
+await page.reload();
+await page.waitForFunction(
+  () => document.getElementById('saveState').dataset.state === 'error',
+  { timeout: 15000 }
+);
+assert.equal(await page.isHidden('#workCard'), true, 'no entry card on a failed read');
+const chipsOnFailure = await page.$$eval('.route-chip', (els) => els.length);
+assert.equal(chipsOnFailure, 0, 'must not render an empty week');
+check('a failed read shows an error rather than an empty database');
+
+readFailure = 0;
+await page.reload();
+await page.waitForFunction(() => document.querySelectorAll('.route-chip').length === 2);
+check('recovering from the failure restores the real data');
 
 // ---- 7. dashboard ----
 await page.goto(base + '/dashboard.html');

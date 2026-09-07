@@ -59,7 +59,13 @@ export async function validateToken(token) {
   }
 }
 
-// UTF-8 safe base64 encode (handles Hebrew text in the JSON).
+// UTF-8 safe base64 decode/encode (handles Hebrew text in the JSON).
+function b64ToUtf8(b64) {
+  const binary = atob(b64.replace(/\s/g, ''));
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder('utf-8').decode(bytes);
+}
+
 function utf8ToB64(str) {
   const bytes = new TextEncoder().encode(str);
   let binary = '';
@@ -69,39 +75,30 @@ function utf8ToB64(str) {
 
 const CONTENTS_URL = `https://api.github.com/repos/${DATA_OWNER}/${DATA_REPO}/contents`;
 
-// Looks up db.json's blob sha from the directory listing. The listing stays
-// small no matter how large the file is, and the sha is what the next write
-// needs for its conflict check.
-async function fetchDbSha() {
-  const res = await fetch(`${CONTENTS_URL}/?t=${Date.now()}`, {
+// Fetches db.json. Returns { data, sha }.
+//
+// A 404 — and ONLY a 404 — means the file does not exist yet, which is a
+// genuinely empty database. Every other failure throws. An earlier version
+// returned an empty database whenever the read did not work out, which made a
+// failed load indistinguishable from having no data: the site came up looking
+// like every address had vanished. A read that did not succeed must never
+// render as an empty database.
+export async function fetchDb() {
+  const res = await fetch(`${CONTENTS_URL}/${DATA_PATH}?t=${Date.now()}`, {
     headers: authHeaders(),
     cache: 'no-store',
   });
-  if (res.status === 404) return null; // empty repo
-  if (!res.ok) throw new Error(`listing failed: ${res.status}`);
-  const entries = await res.json();
-  const entry = Array.isArray(entries) ? entries.find((e) => e.name === DATA_PATH) : null;
-  return entry ? entry.sha : null;
-}
-
-// Fetches db.json. Returns { data, sha } — data is the empty default shape if
-// the file doesn't exist yet.
-//
-// The content is read with the raw media type rather than the default JSON
-// envelope. The envelope base64-encodes the file and is capped at 1 MB, which
-// this database passes within a few weeks of entry; raw is served up to 100 MB.
-export async function fetchDb() {
-  const sha = await fetchDbSha();
-  if (!sha) return { data: emptyDb(), sha: null };
-
-  const res = await fetch(`${CONTENTS_URL}/${DATA_PATH}?t=${Date.now()}`, {
-    headers: { ...authHeaders(), Accept: 'application/vnd.github.raw' },
-    cache: 'no-store',
-  });
   if (res.status === 404) return { data: emptyDb(), sha: null };
-  if (!res.ok) throw new Error(`fetchDb failed: ${res.status}`);
-  const text = await res.text();
-  return { data: JSON.parse(text), sha };
+  if (!res.ok) {
+    const e = new Error(`fetchDb failed: ${res.status}`);
+    e.status = res.status;
+    throw e;
+  }
+  const json = await res.json();
+  if (!json || typeof json.content !== 'string' || typeof json.sha !== 'string') {
+    throw new Error('fetchDb: unexpected response shape');
+  }
+  return { data: JSON.parse(b64ToUtf8(json.content)), sha: json.sha };
 }
 
 // The on-disk form. Not pretty-printed: indentation is roughly a third of the

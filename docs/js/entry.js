@@ -37,7 +37,13 @@ async function start() {
   try {
     await store.load();
   } catch (e) {
-    ui.open();
+    // A failed read is an error, not an empty database. Never render the page
+    // as though there were no data.
+    if (e.status === 401 || e.status === 403) {
+      ui.open();
+    } else {
+      showLoadError();
+    }
     return;
   }
   const week = store.get().currentWeek;
@@ -450,4 +456,11 @@ function wireImport() {
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
+}
+
+// Surfaces a failed load instead of silently showing an empty page.
+function showLoadError() {
+  const box = document.getElementById('saveState');
+  box.dataset.state = 'error';
+  document.getElementById('saveText').textContent = t('load_failed');
 }
