@@ -188,6 +188,15 @@ assert.equal(corrected.visits.length, 1, 'still one visit for the week, not a du
 assert.equal(corrected.visits[0].interest, 'a_lot');
 check('correcting updates the same visit instead of duplicating it');
 
+// the save indicator is already showing a value here, so it catches a
+// language switch that only repaints on the next state change
+await page.click('#langBtn');
+await page.waitForFunction(() => document.documentElement.dir === 'ltr');
+assert.equal(await page.textContent('#saveText'), 'Saved');
+check('save indicator re-renders into the new language');
+await page.click('#langBtn');
+await page.waitForFunction(() => document.documentElement.dir === 'rtl');
+
 // ---- 5. off-route address ----
 await page.fill('#search', '300 Third Street');
 await page.waitForSelector('#addRow');
@@ -239,6 +248,39 @@ await page.selectOption('#fCoverage', '');
 await page.fill('#search', 'first');
 await page.waitForFunction(() => document.querySelectorAll('#rows tr').length === 3);
 check('address search filters the table');
+
+// ---- 8. language ----
+await page.fill('#search', '');
+await page.click('#langBtn');
+await page.waitForFunction(() => document.documentElement.dir === 'ltr');
+assert.equal(await page.getAttribute('html', 'lang'), 'en');
+check('language toggle switches the document to english and ltr');
+
+const enTiles = await page.$$eval('.tile .cap', (els) => els.map((e) => e.textContent));
+assert.ok(enTiles.includes('Never'), `expected a Never tile, got ${enTiles.join(', ')}`);
+const enHeaders = await page.$$eval('thead th', (els) => els.map((e) => e.textContent));
+assert.ok(enHeaders.includes('Address'), `expected Address header, got ${enHeaders.join(', ')}`);
+assert.ok(enHeaders.includes('Coverage'));
+check('tiles and table headers follow the language');
+
+const enCoverage = await page.$$eval('#fCoverage option', (els) => els.map((e) => e.textContent));
+assert.ok(enCoverage.includes('Recent') && enCoverage.includes('Never'));
+check('filter dropdowns follow the language');
+
+const addrCell = await page.textContent('#rows tr:first-child td:first-child');
+assert.ok(/[A-Za-z]/.test(addrCell) && !/[֐-׿]/.test(addrCell), addrCell);
+check('addresses stay english in both languages');
+
+await page.reload();
+await page.waitForFunction(() => document.querySelectorAll('#rows tr').length > 0);
+assert.equal(await page.getAttribute('html', 'dir'), 'ltr');
+check('language choice survives a reload');
+
+await page.click('#langBtn');
+await page.waitForFunction(() => document.documentElement.dir === 'rtl');
+const heTiles = await page.$$eval('.tile .cap', (els) => els.map((e) => e.textContent));
+assert.ok(heTiles.includes('טרם'));
+check('toggling back returns to hebrew');
 
 assert.deepEqual(errors, [], `page errors: ${errors.join(' | ')}`);
 check('no page errors anywhere in the flow');

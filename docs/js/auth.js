@@ -2,12 +2,15 @@
 // sent to api.github.com and nowhere else.
 
 import { getToken, setToken, clearToken, validateToken } from './github-api.js';
+import { t } from './i18n.js';
 
 const MESSAGES = {
-  invalid_token: 'טוקן לא תקין',
-  no_access: 'אין גישה',
-  network: 'שגיאת רשת',
+  invalid_token: 'token_invalid',
+  no_access: 'token_no_access',
+  network: 'token_network',
 };
+
+const message = (code) => (MESSAGES[code] ? t(MESSAGES[code]) : code);
 
 export function initTokenUI({ onAuthed }) {
   const overlay = document.getElementById('tokenOverlay');
@@ -53,7 +56,7 @@ export function initTokenUI({ onAuthed }) {
       onAuthed();
     } else {
       status.className = 'status-label bad';
-      status.textContent = MESSAGES[res.message] || res.message;
+      status.textContent = message(res.message);
     }
   };
 
@@ -76,7 +79,7 @@ export async function ensureAuthed(ui) {
     ui.open();
     const status = document.getElementById('tokenStatus');
     status.className = 'status-label bad';
-    status.textContent = MESSAGES[res.message] || res.message;
+    status.textContent = message(res.message);
     return false;
   }
   return true;

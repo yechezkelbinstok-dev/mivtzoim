@@ -3,22 +3,69 @@
 import { initTokenUI, ensureAuthed } from './auth.js';
 import * as store from './store.js';
 import { latestVisit, coverageStatus } from './data.js';
+import { t, initLangToggle } from './i18n.js';
 
-const INTEREST_LABEL = { none: 'בכלל לא', some: 'קצת', a_lot: 'הרבה' };
-const COVERAGE_LABEL = { fresh: 'עדכני', stale: 'מתיישן', old: 'ישן', never: 'טרם' };
-const SAVE_TEXT = { idle: '', saving: 'שומר', saved: 'נשמר', error: 'שגיאה' };
+const interestLabel = (v) => t(`interest_${v}`);
+const coverageLabel = (v) => t(`cov_${v}`);
+const saveText = (s) => (s === 'idle' ? '' : t(`save_${s}`));
 
 const el = (id) => document.getElementById(id);
 const filters = { q: '', route: '', coverage: '', list: '' };
+
+// Filter dropdowns are built from the dictionary so they follow the language.
+// Selections are preserved across a language switch.
+function renderFilterOptions() {
+  const build = (id, options) => {
+    const select = el(id);
+    const current = select.value;
+    select.textContent = '';
+    for (const [value, label] of options) {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = label;
+      select.appendChild(opt);
+    }
+    select.value = current;
+  };
+
+  const codes = new Set();
+  for (const addr of (store.get() || { addresses: [] }).addresses) {
+    for (const v of addr.visits) if (v.chavrusa) codes.add(v.chavrusa);
+    if (addr.last_route) codes.add(addr.last_route);
+  }
+
+  build('fRoute', [['', t('route')], ...[...codes].sort().map((c) => [c, c])]);
+  build('fCoverage', [
+    ['', t('coverage')],
+    ['fresh', t('cov_fresh')],
+    ['stale', t('cov_stale')],
+    ['old', t('cov_old')],
+    ['never', t('cov_never')],
+  ]);
+  build('fList', [
+    ['', t('all')],
+    ['list', t('f_list')],
+    ['cold', t('f_cold')],
+  ]);
+}
 
 const ui = initTokenUI({ onAuthed: start });
 
 init();
 
 async function init() {
+  initLangToggle(() => {
+    el('saveText').textContent = saveText(store.getState());
+    renderFilterOptions();
+    if (store.get()) {
+      renderTiles();
+      renderRows();
+    }
+  });
+  renderFilterOptions();
   store.onState((s) => {
     el('saveState').dataset.state = s;
-    el('saveText').textContent = SAVE_TEXT[s] || '';
+    el('saveText').textContent = saveText(s);
   });
   ['search', 'fRoute', 'fCoverage', 'fList'].forEach((id) =>
     el(id).addEventListener('input', () => {
@@ -40,24 +87,9 @@ async function start() {
     ui.open();
     return;
   }
-  renderRouteOptions();
+  renderFilterOptions();
   renderTiles();
   renderRows();
-}
-
-function renderRouteOptions() {
-  const codes = new Set();
-  for (const addr of store.get().addresses) {
-    for (const v of addr.visits) if (v.chavrusa) codes.add(v.chavrusa);
-    if (addr.last_route) codes.add(addr.last_route);
-  }
-  const select = el('fRoute');
-  [...codes].sort().forEach((code) => {
-    const opt = document.createElement('option');
-    opt.value = code;
-    opt.textContent = code;
-    select.appendChild(opt);
-  });
 }
 
 function renderTiles() {
@@ -72,22 +104,22 @@ function renderTiles() {
     if (v && v.jewish === true) jewish++;
   }
   const tiles = [
-    { num: addresses.length, cap: 'כתובות', tone: '' },
-    { num: counts.fresh, cap: COVERAGE_LABEL.fresh, tone: 'fresh' },
-    { num: counts.stale, cap: COVERAGE_LABEL.stale, tone: 'stale' },
-    { num: counts.old, cap: COVERAGE_LABEL.old, tone: 'old' },
-    { num: counts.never, cap: COVERAGE_LABEL.never, tone: 'never' },
-    { num: jewish, cap: 'יהודי', tone: '' },
-    { num: onList, cap: '★ רשימה', tone: '' },
+    { num: addresses.length, cap: t('addresses'), tone: '' },
+    { num: counts.fresh, cap: coverageLabel('fresh'), tone: 'fresh' },
+    { num: counts.stale, cap: coverageLabel('stale'), tone: 'stale' },
+    { num: counts.old, cap: coverageLabel('old'), tone: 'old' },
+    { num: counts.never, cap: coverageLabel('never'), tone: 'never' },
+    { num: jewish, cap: t('jewish_yes'), tone: '' },
+    { num: onList, cap: t('f_list'), tone: '' },
   ];
   const wrap = el('tiles');
   wrap.textContent = '';
-  for (const t of tiles) {
+  for (const tile of tiles) {
     const div = document.createElement('div');
     div.className = 'tile';
-    if (t.tone) div.dataset.tone = t.tone;
-    div.innerHTML = `<div class="num">${t.num}</div><div class="cap"></div>`;
-    div.querySelector('.cap').textContent = t.cap;
+    if (tile.tone) div.dataset.tone = tile.tone;
+    div.innerHTML = `<div class="num">${tile.num}</div><div class="cap"></div>`;
+    div.querySelector('.cap').textContent = tile.cap;
     wrap.appendChild(div);
   }
 }
@@ -133,14 +165,14 @@ function renderRows() {
 
     const covCell = document.createElement('td');
     covCell.innerHTML = `<span class="cov"><span class="state-dot" data-cov="${cov}"></span><span></span></span>`;
-    covCell.querySelector('.cov span:last-child').textContent = COVERAGE_LABEL[cov];
+    covCell.querySelector('.cov span:last-child').textContent = coverageLabel(cov);
     tr.appendChild(covCell);
 
     tr.appendChild(td(v ? `${formatDate(v.date)}` : '—', 'date'));
     tr.appendChild(td(v && v.chavrusa ? v.chavrusa : addr.last_route || ''));
-    tr.appendChild(td(v && v.answered !== null ? (v.answered ? 'ענו' : 'לא ענו') : ''));
-    tr.appendChild(td(v && v.jewish !== null ? (v.jewish ? 'יהודי' : 'לא יהודי') : ''));
-    tr.appendChild(td(v && v.interest ? INTEREST_LABEL[v.interest] : ''));
+    tr.appendChild(td(v && v.answered !== null ? (v.answered ? t('answered_yes') : t('answered_no')) : ''));
+    tr.appendChild(td(v && v.jewish !== null ? (v.jewish ? t('jewish_yes') : t('jewish_no')) : ''));
+    tr.appendChild(td(v && v.interest ? interestLabel(v.interest) : ''));
     tr.appendChild(td(String(addr.visits.length), 'date'));
     tr.appendChild(td(v ? v.notes || '' : '', 'notes'));
 

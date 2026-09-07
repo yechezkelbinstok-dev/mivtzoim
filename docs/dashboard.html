@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>מבצעים — לוח</title>
+    <title>מבצעים</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -14,36 +14,33 @@
   </head>
   <body>
     <header class="top">
-      <div class="brand">מבצעים</div>
+      <div class="brand" data-i18n="brand">מבצעים</div>
       <nav class="tabs">
-        <a href="index.html">רישום</a>
-        <a href="dashboard.html" aria-current="page">לוח</a>
+        <a href="index.html" data-i18n="nav_entry">רישום</a>
+        <a href="dashboard.html" aria-current="page" data-i18n="nav_board">לוח</a>
       </nav>
       <div class="spacer"></div>
       <div class="save-state" id="saveState" data-state="idle">
         <span class="dot"></span><span id="saveText"></span>
       </div>
-      <button class="icon-btn" id="tokenBtn" title="טוקן">🔑</button>
+      <button class="icon-btn lang-btn" id="langBtn" data-i18n="lang_next">EN</button>
+      <button class="icon-btn" id="tokenBtn" data-i18n-title="token" title="טוקן">🔑</button>
     </header>
 
     <main class="board">
       <div class="tiles" id="tiles"></div>
 
       <div class="filters">
-        <input type="search" id="search" placeholder="חיפוש כתובת" autocomplete="off" />
-        <select id="fRoute"><option value="">מסלול</option></select>
-        <select id="fCoverage">
-          <option value="">כיסוי</option>
-          <option value="fresh">עדכני</option>
-          <option value="stale">מתיישן</option>
-          <option value="old">ישן</option>
-          <option value="never">טרם</option>
-        </select>
-        <select id="fList">
-          <option value="">הכל</option>
-          <option value="list">★ רשימה</option>
-          <option value="cold">דלת חדשה</option>
-        </select>
+        <input
+          type="search"
+          id="search"
+          data-i18n-placeholder="search_address"
+          placeholder="חיפוש כתובת"
+          autocomplete="off"
+        />
+        <select id="fRoute"></select>
+        <select id="fCoverage"></select>
+        <select id="fList"></select>
         <div class="spacer"></div>
         <span class="save-state" id="rowCount"></span>
       </div>
@@ -52,16 +49,16 @@
         <table>
           <thead>
             <tr>
-              <th>כתובת</th>
-              <th>רשימה</th>
-              <th>כיסוי</th>
-              <th>ביקור אחרון</th>
-              <th>מסלול</th>
-              <th>ענו</th>
-              <th>יהודי</th>
-              <th>עניין</th>
-              <th>ביקורים</th>
-              <th>הערות</th>
+              <th data-i18n="address">כתובת</th>
+              <th data-i18n="list">רשימה</th>
+              <th data-i18n="coverage">כיסוי</th>
+              <th data-i18n="last_visit">ביקור אחרון</th>
+              <th data-i18n="route">מסלול</th>
+              <th data-i18n="answered_yes">ענו</th>
+              <th data-i18n="jewish_yes">יהודי</th>
+              <th data-i18n="interest">עניין</th>
+              <th data-i18n="visits">ביקורים</th>
+              <th data-i18n="notes">הערות</th>
             </tr>
           </thead>
           <tbody id="rows"></tbody>
@@ -72,12 +69,21 @@
     <div class="overlay" id="tokenOverlay" hidden>
       <div class="dialog narrow">
         <div class="key-icon">🔑</div>
-        <h2>טוקן</h2>
+        <h2 data-i18n="token">טוקן</h2>
         <input type="password" id="tokenInput" autocomplete="off" spellcheck="false" />
         <div class="status-label" id="tokenStatus"></div>
         <div class="row">
-          <button class="btn-primary" id="tokenSave">אישור</button>
-          <button class="btn-ghost" id="tokenClear">מחיקה</button>
+          <button class="btn-primary" id="tokenSave" data-i18n="ok">אישור</button>
+          <button class="btn-ghost" id="tokenClear" data-i18n="clear">מחיקה</button>
+          <div class="spacer"></div>
+          <a
+            class="link-btn ltr"
+            id="tokenCreate"
+            target="_blank"
+            rel="noopener"
+            href="https://github.com/settings/personal-access-tokens/new"
+            >github.com ↗</a
+          >
         </div>
       </div>
     </div>

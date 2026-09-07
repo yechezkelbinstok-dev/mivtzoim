@@ -3,9 +3,10 @@
 import { initTokenUI, ensureAuthed } from './auth.js';
 import * as store from './store.js';
 import { parseCsv, slugify } from './data.js';
+import { t, initLangToggle } from './i18n.js';
 
-const INTEREST_LABEL = { none: 'בכלל לא', some: 'קצת', a_lot: 'הרבה' };
-const SAVE_TEXT = { idle: '', saving: 'שומר', saved: 'נשמר', error: 'שגיאה' };
+const interestLabel = (v) => t(`interest_${v}`);
+const saveText = (s) => (s === 'idle' ? '' : t(`save_${s}`));
 
 const el = (id) => document.getElementById(id);
 
@@ -19,6 +20,10 @@ const ui = initTokenUI({ onAuthed: start });
 init();
 
 async function init() {
+  initLangToggle(() => {
+    el('saveText').textContent = saveText(store.getState());
+    if (store.get()) renderAll();
+  });
   wireSaveState();
   wireChoices();
   wireSearch();
@@ -158,7 +163,7 @@ function renderCard() {
   const week = db.currentWeek;
   const route = week ? routeOf(week, addr.id) : null;
   if (route) {
-    meta.appendChild(pill(`מסלול ${route}`, 'route'));
+    meta.appendChild(pill(`${t('route')} ${route}`, 'route'));
     const bochurim = week.routes[route].bochurim;
     if (bochurim) {
       const span = document.createElement('span');
@@ -197,9 +202,9 @@ function renderHistory(addr) {
     date.textContent = formatDate(v.date);
     row.appendChild(date);
     if (v.chavrusa) row.appendChild(pill(v.chavrusa, 'route'));
-    if (v.answered !== null) row.appendChild(tag(v.answered ? 'ענו' : 'לא ענו', v.answered));
-    if (v.jewish !== null) row.appendChild(tag(v.jewish ? 'יהודי' : 'לא יהודי', v.jewish));
-    if (v.interest) row.appendChild(tag(INTEREST_LABEL[v.interest], null));
+    if (v.answered !== null) row.appendChild(tag(v.answered ? t('answered_yes') : t('answered_no'), v.answered));
+    if (v.jewish !== null) row.appendChild(tag(v.jewish ? t('jewish_yes') : t('jewish_no'), v.jewish));
+    if (v.interest) row.appendChild(tag(interestLabel(v.interest), null));
     const notes = document.createElement('span');
     notes.className = 'visit-notes';
     notes.textContent = v.notes || '';
@@ -349,7 +354,7 @@ function wireSaveState() {
   const box = el('saveState');
   store.onState((s) => {
     box.dataset.state = s;
-    el('saveText').textContent = SAVE_TEXT[s] || '';
+    el('saveText').textContent = saveText(s);
   });
   box.addEventListener('click', () => store.retry());
   window.addEventListener('beforeunload', (e) => {
@@ -408,7 +413,7 @@ function wireImport() {
   el('importDo').addEventListener('click', () => {
     const rows = parseCsv(csvText.value).filter((r) => (r.address || '').trim());
     if (!rows.length) {
-      setStatus('אין שורות', 'bad');
+      setStatus(t('import_none'), 'bad');
       return;
     }
     const week = store.get().currentWeek;
@@ -418,7 +423,7 @@ function wireImport() {
           0
         )
       : 0;
-    if (week && openCount > 0 && !confirm(`החלפת מסלולים — ${openCount} טרם נרשמו`)) return;
+    if (week && openCount > 0 && !confirm(`${t('import_replace')} — ${openCount} ${t('import_open')}`)) return;
 
     store.apply({ kind: 'import', rows, weekId: todayIso() }, `import ${rows.length} addresses`);
     overlay.hidden = true;

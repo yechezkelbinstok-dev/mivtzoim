@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>מבצעים — רישום</title>
+    <title>מבצעים</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -14,16 +14,17 @@
   </head>
   <body>
     <header class="top">
-      <div class="brand">מבצעים</div>
+      <div class="brand" data-i18n="brand">מבצעים</div>
       <nav class="tabs">
-        <a href="index.html" aria-current="page">רישום</a>
-        <a href="dashboard.html">לוח</a>
+        <a href="index.html" aria-current="page" data-i18n="nav_entry">רישום</a>
+        <a href="dashboard.html" data-i18n="nav_board">לוח</a>
       </nav>
       <div class="spacer"></div>
       <div class="save-state" id="saveState" data-state="idle">
         <span class="dot"></span><span id="saveText"></span>
       </div>
-      <button class="icon-btn" id="tokenBtn" title="טוקן">🔑</button>
+      <button class="icon-btn lang-btn" id="langBtn" data-i18n="lang_next">EN</button>
+      <button class="icon-btn" id="tokenBtn" data-i18n-title="token" title="טוקן">🔑</button>
     </header>
 
     <main class="entry">
@@ -31,12 +32,18 @@
         <div class="rail-head">
           <div class="week-line">
             <span class="week-id" id="weekId">—</span>
-            <button class="link-btn" id="importBtn">ייבוא</button>
+            <button class="link-btn" id="importBtn" data-i18n="import">ייבוא</button>
           </div>
           <div class="routes" id="routes"></div>
         </div>
         <div class="search-wrap">
-          <input type="search" id="search" placeholder="חיפוש כתובת" autocomplete="off" />
+          <input
+            type="search"
+            id="search"
+            data-i18n-placeholder="search_address"
+            placeholder="חיפוש כתובת"
+            autocomplete="off"
+          />
         </div>
         <div class="addr-list" id="addrList"></div>
       </aside>
@@ -55,39 +62,39 @@
 
           <div class="field">
             <div class="choices" id="fAnswered">
-              <button class="choice pos" data-value="true" aria-pressed="false">ענו</button>
-              <button class="choice neg" data-value="false" aria-pressed="false">לא ענו</button>
+              <button class="choice pos" data-value="true" data-i18n="answered_yes">ענו</button>
+              <button class="choice neg" data-value="false" data-i18n="answered_no">לא ענו</button>
             </div>
           </div>
 
           <div class="field">
             <div class="choices" id="fJewish">
-              <button class="choice pos" data-value="true" aria-pressed="false">יהודי</button>
-              <button class="choice neg" data-value="false" aria-pressed="false">לא יהודי</button>
+              <button class="choice pos" data-value="true" data-i18n="jewish_yes">יהודי</button>
+              <button class="choice neg" data-value="false" data-i18n="jewish_no">לא יהודי</button>
             </div>
           </div>
 
           <div class="field">
-            <div class="label">עניין</div>
+            <div class="label" data-i18n="interest">עניין</div>
             <div class="choices" id="fInterest">
-              <button class="choice" data-value="none" aria-pressed="false">בכלל לא</button>
-              <button class="choice" data-value="some" aria-pressed="false">קצת</button>
-              <button class="choice" data-value="a_lot" aria-pressed="false">הרבה</button>
+              <button class="choice" data-value="none" data-i18n="interest_none">בכלל לא</button>
+              <button class="choice" data-value="some" data-i18n="interest_some">קצת</button>
+              <button class="choice" data-value="a_lot" data-i18n="interest_a_lot">הרבה</button>
             </div>
           </div>
 
           <div class="field">
-            <div class="label">הערות</div>
+            <div class="label" data-i18n="notes">הערות</div>
             <textarea class="notes" id="fNotes"></textarea>
           </div>
 
           <div class="actions">
-            <button class="btn-primary" id="saveBtn">שמור</button>
-            <button class="btn-ghost" id="skipBtn">דלג</button>
+            <button class="btn-primary" id="saveBtn" data-i18n="save">שמור</button>
+            <button class="btn-ghost" id="skipBtn" data-i18n="skip">דלג</button>
           </div>
 
           <div class="history" id="history" hidden>
-            <div class="label">היסטוריה</div>
+            <div class="label" data-i18n="history">היסטוריה</div>
             <div id="historyRows"></div>
           </div>
         </div>
@@ -97,26 +104,35 @@
     <div class="overlay" id="tokenOverlay" hidden>
       <div class="dialog narrow">
         <div class="key-icon">🔑</div>
-        <h2>טוקן</h2>
+        <h2 data-i18n="token">טוקן</h2>
         <input type="password" id="tokenInput" autocomplete="off" spellcheck="false" />
         <div class="status-label" id="tokenStatus"></div>
         <div class="row">
-          <button class="btn-primary" id="tokenSave">אישור</button>
-          <button class="btn-ghost" id="tokenClear">מחיקה</button>
+          <button class="btn-primary" id="tokenSave" data-i18n="ok">אישור</button>
+          <button class="btn-ghost" id="tokenClear" data-i18n="clear">מחיקה</button>
+          <div class="spacer"></div>
+          <a
+            class="link-btn ltr"
+            id="tokenCreate"
+            target="_blank"
+            rel="noopener"
+            href="https://github.com/settings/personal-access-tokens/new"
+            >github.com ↗</a
+          >
         </div>
       </div>
     </div>
 
     <div class="overlay" id="importOverlay" hidden>
       <div class="dialog">
-        <h2>ייבוא מסלולים</h2>
+        <h2 data-i18n="import_title">ייבוא מסלולים</h2>
         <div class="drop" id="drop">door_log.csv</div>
         <input type="file" id="fileInput" accept=".csv,text/csv" hidden />
         <textarea class="csv" id="csvText" spellcheck="false"></textarea>
         <div class="status-label" id="importStatus"></div>
         <div class="row">
-          <button class="btn-primary" id="importDo">ייבוא</button>
-          <button class="btn-ghost" id="importCancel">ביטול</button>
+          <button class="btn-primary" id="importDo" data-i18n="import">ייבוא</button>
+          <button class="btn-ghost" id="importCancel" data-i18n="cancel">ביטול</button>
         </div>
       </div>
     </div>
