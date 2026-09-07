@@ -13,6 +13,7 @@ const el = (id) => document.getElementById(id);
 let selectedRoute = null;
 let currentId = null;
 let searchQuery = '';
+let kindFilter = ''; // '' | 'list' | 'cold'
 let draft = { answered: null, jewish: null, interest: null, notes: '' };
 
 const ui = initGate({ onAuthed: start });
@@ -26,6 +27,7 @@ async function init() {
   });
   wireSaveState();
   wireChoices();
+  wireKindFilter();
   wireSearch();
   wireImport();
   wireActions();
@@ -97,17 +99,25 @@ function renderRoutes() {
 
 // The rows currently shown in the rail: this week's route, or search results
 // across every address ever recorded.
+function matchesKind(addr) {
+  if (kindFilter === 'list') return !!addr.on_shliach_list;
+  if (kindFilter === 'cold') return !addr.on_shliach_list;
+  return true;
+}
+
 function visibleAddresses() {
   const db = store.get();
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
-    return db.addresses.filter((a) => a.address.toLowerCase().includes(q)).slice(0, 80);
+    return db.addresses
+      .filter((a) => a.address.toLowerCase().includes(q) && matchesKind(a))
+      .slice(0, 80);
   }
   const week = db.currentWeek;
   if (!week || !selectedRoute || !week.routes[selectedRoute]) return [];
   return week.routes[selectedRoute].addressIds
     .map((id) => db.addresses.find((a) => a.id === id))
-    .filter(Boolean);
+    .filter((a) => a && matchesKind(a));
 }
 
 function renderList() {
@@ -145,11 +155,15 @@ function renderList() {
     btn.dataset.entered = String(entered);
     btn.dataset.id = addr.id;
     btn.setAttribute('aria-current', String(addr.id === currentId));
+    btn.dataset.onlist = String(!!addr.on_shliach_list);
     const star = addr.on_shliach_list ? '<span class="star">★</span>' : '';
     btn.innerHTML =
       `<span class="idx">${searchQuery ? '' : i + 1}</span>` +
-      `<span class="addr ltr"></span>${star}<span class="state-dot"></span>`;
+      `<span class="stack"><span class="addr ltr"></span>` +
+      (addr.name_on_list ? `<span class="listname"></span>` : '') +
+      `</span>${star}<span class="state-dot"></span>`;
     btn.querySelector('.addr').textContent = addr.address;
+    if (addr.name_on_list) btn.querySelector('.listname').textContent = addr.name_on_list;
     btn.addEventListener('click', () => select(addr.id));
     list.appendChild(btn);
   });
@@ -163,6 +177,10 @@ function renderCard() {
   if (!addr) return;
 
   el('cardAddr').textContent = addr.address;
+  el('cardAddr').classList.toggle('onlist', !!addr.on_shliach_list);
+  const nameLine = el('cardName');
+  nameLine.textContent = addr.name_on_list || '';
+  nameLine.hidden = !addr.name_on_list;
 
   const meta = el('cardMeta');
   meta.textContent = '';
@@ -177,9 +195,7 @@ function renderCard() {
       meta.appendChild(span);
     }
   }
-  if (addr.on_shliach_list) {
-    meta.appendChild(pill(addr.name_on_list ? `★ ${addr.name_on_list}` : '★', 'list'));
-  }
+  if (addr.on_shliach_list) meta.appendChild(pill(t('f_list'), 'list'));
 
   setChoices();
   el('fNotes').value = draft.notes;
@@ -351,6 +367,19 @@ function addNewAddress(address) {
   el('search').value = '';
   renderAll();
   select(addr.id);
+}
+
+function wireKindFilter() {
+  el('kindFilter').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    kindFilter = btn.dataset.kind;
+    el('kindFilter')
+      .querySelectorAll('button')
+      .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.kind === kindFilter)));
+    renderList();
+    selectFirstUnentered();
+  });
 }
 
 function wireSearch() {

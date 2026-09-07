@@ -35,6 +35,11 @@
             <button class="link-btn" id="importBtn" data-i18n="import">ייבוא</button>
           </div>
           <div class="routes" id="routes"></div>
+          <div class="kind-filter" id="kindFilter">
+            <button data-kind="" aria-pressed="true" data-i18n="all">הכל</button>
+            <button data-kind="list" aria-pressed="false" data-i18n="f_list">★ רשימה</button>
+            <button data-kind="cold" aria-pressed="false" data-i18n="f_cold">דלת חדשה</button>
+          </div>
         </div>
         <div class="search-wrap">
           <input
@@ -56,6 +61,7 @@
           <div class="work-head">
             <div style="flex: 1; min-width: 0">
               <div class="addr-big ltr" id="cardAddr"></div>
+              <div class="listname-big" id="cardName" hidden></div>
               <div class="meta-line" id="cardMeta"></div>
             </div>
           </div>

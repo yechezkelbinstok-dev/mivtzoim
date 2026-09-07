@@ -871,3 +871,91 @@ td.notes {
   margin-top: 8px;
   text-decoration: none;
 }
+
+/* ---------- shliach's-list entries ---------- */
+/* The printed sheet gives these a different row entirely: bold address, the
+   family name beneath it, and no result fields. Carried over here so paper and
+   screen agree at a glance. */
+
+.kind-filter {
+  display: flex;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.kind-filter button {
+  flex: 1;
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  color: var(--ink-soft);
+  border-radius: 8px;
+  padding: 5px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.kind-filter button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.kind-filter button[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.addr-row {
+  border-inline-start: 3px solid transparent;
+}
+
+.addr-row[data-onlist='true'] {
+  background: #fdfaf2;
+  border-inline-start-color: var(--star);
+}
+
+.addr-row[data-onlist='true']:hover {
+  background: #fbf4e6;
+}
+
+.addr-row[data-onlist='true'] .addr {
+  font-weight: 700;
+}
+
+.addr-row .stack {
+  flex: 1;
+  min-width: 0;
+}
+
+.addr-row .listname {
+  font-size: 11px;
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.addr-big.onlist::after {
+  content: '★';
+  color: var(--star);
+  font-size: 20px;
+  margin-inline-start: 10px;
+  vertical-align: middle;
+}
+
+.listname-big {
+  margin-top: 6px;
+  font-size: 15px;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+td.addr-cell.onlist {
+  font-weight: 700;
+}
+
+td .listname {
+  font-size: 11px;
+  color: var(--ink-faint);
+}

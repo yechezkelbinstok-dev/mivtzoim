@@ -177,8 +177,41 @@ assert.equal((await page.textContent('#cardAddr')).trim(), '101 First Street');
 const meta = await page.textContent('#cardMeta');
 assert.ok(meta.includes('מסלול א'), 'route pill');
 assert.ok(meta.includes('בוחר ראשון'), 'bochurim');
-assert.ok(meta.includes('משפחה א'), 'name from the shliach list');
+assert.equal((await page.textContent('#cardName')).trim(), 'משפחה א');
 check('card shows address, route, bochurim, and the list name');
+
+// ---- 2b. shliach's-list doors read differently, as they do on paper ----
+const listRow = '.addr-row[data-id="101-first-street"]';
+assert.equal(await page.getAttribute(listRow, 'data-onlist'), 'true');
+assert.equal(
+  await page.$eval(listRow + ' .listname', (e) => e.textContent.trim()),
+  'משפחה א',
+  'the family name sits under the address, as on the sheet'
+);
+assert.equal(
+  await page.$eval('.addr-row[data-id="103-first-street"]', (e) => e.dataset.onlist),
+  'false'
+);
+assert.equal(await page.$$eval('.addr-row[data-id="103-first-street"] .listname', (e) => e.length), 0);
+check('list entries are marked and named; cold doors are not');
+
+const weightList = await page.$eval(listRow + ' .addr', (e) => getComputedStyle(e).fontWeight);
+const weightCold = await page.$eval('.addr-row[data-id="103-first-street"] .addr', (e) => getComputedStyle(e).fontWeight);
+assert.ok(Number(weightList) > Number(weightCold), `list ${weightList} vs cold ${weightCold}`);
+check('the list address is actually rendered bolder, not just tagged');
+
+await page.click('#kindFilter button[data-kind="list"]');
+await page.waitForFunction(() => document.querySelectorAll('.addr-list .addr-row').length === 1);
+assert.equal((await page.textContent('.addr-row .addr')).trim(), '101 First Street');
+check('filtering to ★ list shows only the shliach\'s-list doors');
+
+await page.click('#kindFilter button[data-kind="cold"]');
+await page.waitForFunction(() => document.querySelectorAll('.addr-list .addr-row').length === 2);
+check('filtering to new doors excludes the list entries');
+
+await page.click('#kindFilter button[data-kind=""]');
+await page.waitForFunction(() => document.querySelectorAll('.addr-list .addr-row').length === 3);
+check('clearing the filter restores the whole route');
 
 // ---- 3. entering a result ----
 await page.click('#fAnswered .choice[data-value="true"]');

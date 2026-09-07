@@ -177,8 +177,21 @@ function renderRows() {
     const cov = coverageStatus(addr);
     const tr = document.createElement('tr');
 
-    tr.appendChild(td(addr.address, 'ltr'));
-    tr.appendChild(td(addr.on_shliach_list ? (addr.name_on_list ? `★ ${addr.name_on_list}` : '★') : ''));
+    // Same treatment as the printed sheet: a list entry is bold and carries
+    // the family name under the address.
+    const addrCell = document.createElement('td');
+    addrCell.className = `ltr addr-cell${addr.on_shliach_list ? ' onlist' : ''}`;
+    const line = document.createElement('div');
+    line.textContent = addr.address;
+    addrCell.appendChild(line);
+    if (addr.name_on_list) {
+      const nm = document.createElement('div');
+      nm.className = 'listname';
+      nm.textContent = addr.name_on_list;
+      addrCell.appendChild(nm);
+    }
+    tr.appendChild(addrCell);
+    tr.appendChild(td(addr.on_shliach_list ? '★' : ''));
 
     const covCell = document.createElement('td');
     covCell.innerHTML = `<span class="cov"><span class="state-dot" data-cov="${cov}"></span><span></span></span>`;
