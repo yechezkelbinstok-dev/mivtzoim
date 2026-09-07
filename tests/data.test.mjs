@@ -52,6 +52,7 @@ check('slugify: abbreviated street types are the same door', () => {
   assert.equal(slugify('200 Sample Rd'), slugify('200 Sample Road'));
   assert.equal(slugify('300 Sample Ln'), slugify('300 Sample Lane'));
   assert.equal(slugify('400 Sample Pl'), slugify('400 Sample Place'));
+  assert.equal(slugify('500 Sample Dr'), slugify('500 Sample Drive'));
   // only the trailing word is a street type; a house named "Court" is not
   assert.notEqual(slugify('12 Court Street'), slugify('12 Street Street'));
 });
