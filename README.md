@@ -12,13 +12,13 @@ browser via the GitHub REST API.
 
 ```
 docs/                 the site (GitHub Pages serves this directory)
-  index.html          entry: import a week's routes, walk them, record results
-  dashboard.html      every address ever recorded, coverage and last result
+  index.html          entry: walk the week's routes, record results per door
+  dashboard.html      every address ever recorded, with its last result
   css/style.css
   js/github-api.js    GitHub REST calls + token storage
   js/vault.js         password-encrypted token vault
   js/i18n.js          Hebrew/English strings and direction
-  js/data.js          address/visit model, CSV import, coverage rules
+  js/data.js          address/visit model, CSV import, address keys
   js/store.js         in-memory db + serialized write queue
   js/auth.js          password gate
   js/entry.js         entry page
@@ -84,19 +84,22 @@ One file, `db.json`, in `mivtzoim-data`:
   "version": 1,
   "addresses": [
     {
-      "id": "101-first-street",       // slug of the address, stable key
+      "id": "101-first-street",       // slug of the address, the stable key
       "address": "101 First Street",
       "on_shliach_list": true,        // historical list entry vs. cold door
-      "name_on_list": "",
+      "name_on_list": "Mr. & Mrs. A", // the household, where it is known
+      "zip": "45208",                 // both only present for list entries
+      "hood": "Hyde Park / Mt Lookout",
       "last_route": "\u05d0",
       "visits": [
         {
           "date": "2026-09-07",
           "week": "2026-09-07",
           "chavrusa": "\u05d0",
-          "answered": true,           // true | false | null
-          "jewish": true,             // true | false | null
-          "interest": "some",         // "none" | "some" | "a_lot" | null
+          "still_there": null,        // list doors only: true | false | null
+          "answered": true,           // cold doors only: true | false | null
+          "jewish": true,             // cold doors only: true | false | null
+          "interest": "some",         // cold doors only: none|some|a_lot|null
           "notes": ""
         }
       ]
@@ -105,59 +108,83 @@ One file, `db.json`, in `mivtzoim-data`:
   "weeks": {                          // the pair per route, once per week
     "2026-09-07": { "\u05d0": "\u05e9\u05dd / \u05e9\u05dd" }
   },
-  "currentWeek": {                    // the imported route sheet in progress
+  "currentWeek": {                    // the route sheet being entered
     "weekId": "2026-09-07",
-    "importedAt": "2026-09-07T12:00:00.000Z",
     "routes": { "\u05d0": { "bochurim": "", "addressIds": ["101-first-street"] } },
     "entered": { "101-first-street": true }
   }
 }
 ```
 
-Import expects the columns produced by the paper-packet generator's
-`door_log.csv`: `chavrusa,bochurim,address,on_shliach_list,name_on_list,answered,jewish,interest,notes`.
-A UTF-8 BOM on the header row is handled. `address` is the identity of a door
-across weeks, so the generator must spell a given address identically every
-week or it will be recorded as two houses.
+No coordinates are stored. The site has no map and does not geocode.
 
-### Size, and why the file is shaped this way
+### Two kinds of door
 
-A week is roughly 900 doors, and every save re-uploads the whole file, so the
-per-visit cost is what matters. Measured against a real week's `door_log.csv`:
+The printed door-by-door sheet treats a shliach's-list address as a different
+row, not a normal row with a mark on it: bold, the family name beneath, and the
+result columns replaced outright. The site follows that.
+
+- **Cold door** — ענו / לא ענו, יהודי / לא יהודי, בכלל לא / קצת / הרבה, notes.
+- **Shliach's-list door** — עדיין שם? כן / לא, then notes. The other three are
+  hidden and written as null. For a list built up over decades the question
+  that matters is whether the household is still at the address.
+
+Each is stored per visit, so a household can be recorded as gone this year
+having been there last year.
+
+### Getting data in
+
+There is no import UI. Weeks and list updates are loaded into `mivtzoim-data`
+directly, outside the site, so nobody using it has to find a file.
+
+A week comes from the paper-packet generator's `door_log.csv`:
+`chavrusa,bochurim,address,on_shliach_list,name_on_list,answered,jewish,interest,notes`.
+A UTF-8 BOM on the header row is handled.
+
+`address` is the identity of a door across weeks. Trailing street-type
+abbreviations are folded (`Ave.` and `Avenue` are one door, as are `Rd`/`Road`,
+`Ln`/`Lane`, `Pl`/`Place`), because the generator and the shliach's list spell
+them inconsistently and each spelling would otherwise become its own record and
+split that address's history.
+
+### Size
+
+A week is roughly 900 doors and every save re-uploads the whole file, so the
+per-visit cost is what matters. Measured against real data:
 
 | | size |
 |---|---|
-| after importing a week | 138 KB |
-| after entering that week's results | 265 KB |
-| projected after a year of weekly revisits | 5.4 MB |
+| 1,164 addresses, none entered | 191 KB |
+| a week of results entered | ~265 KB |
+| projected after a year of weekly revisits | ~5 MB |
 
-Three decisions keep it there, and `tests/data.test.mjs` guards the result:
+Two decisions keep it there, and `tests/data.test.mjs` fails if either
+regresses:
 
-- **Reads use the raw media type.** The default contents API base64-encodes the
-  file into a JSON envelope and caps it at 1 MB, which this database passes
-  after about three weeks of entry. Raw is served up to 100 MB. The blob sha
-  that writes need comes from a separate directory listing, which stays small
-  whatever the file size.
 - **The pair's names are stored once per week**, in `weeks`, not copied onto
   each of ~900 visits. This was the single largest thing in the file.
 - **The stored JSON is not pretty-printed.** Indentation was about a third of
   the bytes.
 
-Writes are serialized, one request at a time, and carry the file's SHA. If the
-other person saved in between, the page refetches their copy and replays its
-own unsaved operations onto it rather than overwriting. Saves are also
-debounced, so a burst of entry becomes a handful of requests rather than one
-per door; pending work is flushed when the tab is hidden, and closing with
-unsaved changes warns.
+Reads use the contents API, which caps at 1 MB. At the rate above that is
+roughly a year of entry. When it approaches, split visits into per-week files
+and leave the addresses as an index — and verify the new read path against the
+live API before it goes anywhere near the branch being served.
 
-If this ever does approach 100 MB, the next step is splitting visits into
-per-week files and leaving `addresses.json` as the index.
+Writes are serialized, one at a time, and carry the file's SHA. If the other
+person saved in between, the page refetches their copy and replays its own
+unsaved operations onto it rather than overwriting. Saves are debounced, so a
+burst of entry becomes a handful of requests rather than one per door; pending
+work flushes when the tab is hidden, and closing with unsaved changes warns.
+
+A read that does not succeed is never rendered as an empty database — only a
+404 means "no file yet". Everything else surfaces as an error.
 
 ## Tests
 
 ```
-node tests/data.test.mjs      # data model, CSV import, coverage rules
-node tests/entry.browser.mjs  # full entry flow in a browser, stubbed API
+node tests/data.test.mjs      # 14 checks: model, CSV import, address keys, size
+node tests/entry.browser.mjs  # 46 checks: the real pages against a stubbed API
 ```
 
 The browser test needs `playwright` available; it serves `docs/`, stubs every
