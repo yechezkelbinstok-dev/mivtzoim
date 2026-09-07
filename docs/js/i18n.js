@@ -61,6 +61,9 @@ const STRINGS = {
     all: 'הכל',
     f_list: '★ רשימה',
     f_cold: 'דלת חדשה',
+    still_there: 'עדיין שם?',
+    yes: 'כן',
+    no: 'לא',
   },
   en: {
     dir: 'ltr',
@@ -118,6 +121,9 @@ const STRINGS = {
     all: 'All',
     f_list: '★ List',
     f_cold: 'New door',
+    still_there: 'Still there?',
+    yes: 'Yes',
+    no: 'No',
   },
 };
 

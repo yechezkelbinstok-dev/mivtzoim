@@ -63,21 +63,29 @@
             </div>
           </div>
 
-          <div class="field">
+          <div class="field" id="fieldStill" hidden>
+            <div class="label" data-i18n="still_there">עדיין שם?</div>
+            <div class="choices" id="fStill">
+              <button class="choice pos" data-value="true" data-i18n="yes">כן</button>
+              <button class="choice neg" data-value="false" data-i18n="no">לא</button>
+            </div>
+          </div>
+
+          <div class="field" id="fieldAnswered">
             <div class="choices" id="fAnswered">
               <button class="choice pos" data-value="true" data-i18n="answered_yes">ענו</button>
               <button class="choice neg" data-value="false" data-i18n="answered_no">לא ענו</button>
             </div>
           </div>
 
-          <div class="field">
+          <div class="field" id="fieldJewish">
             <div class="choices" id="fJewish">
               <button class="choice pos" data-value="true" data-i18n="jewish_yes">יהודי</button>
               <button class="choice neg" data-value="false" data-i18n="jewish_no">לא יהודי</button>
             </div>
           </div>
 
-          <div class="field">
+          <div class="field" id="fieldInterest">
             <div class="label" data-i18n="interest">עניין</div>
             <div class="choices" id="fInterest">
               <button class="choice" data-value="none" data-i18n="interest_none">בכלל לא</button>

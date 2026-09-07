@@ -207,8 +207,8 @@ export function addAddress(db, address, { chavrusa = '', on_shliach_list = false
 }
 
 // Appends/updates this week's visit result for one address and marks it
-// entered in currentWeek. `result` = { answered, jewish, interest, notes }
-// with answered/jewish as true/false/null and interest as
+// entered in currentWeek. `result` = { still_there, answered, jewish, interest,
+// notes } with still_there/answered/jewish as true/false/null and interest as
 // 'none'|'some'|'a_lot'|null.
 export function recordVisit(db, addressId, result) {
   const addr = db.addresses.find((a) => a.id === addressId);
@@ -222,6 +222,10 @@ export function recordVisit(db, addressId, result) {
     date: new Date().toISOString().slice(0, 10),
     week: weekId,
     chavrusa: chavrusa || (existing && existing.chavrusa) || '',
+    // Shliach's-list doors are not scored on answered/Jewish/interest. The
+    // question that matters for a decades-old list is whether the household is
+    // still at the address.
+    still_there: result.still_there ?? null,
     answered: result.answered ?? null,
     jewish: result.jewish ?? null,
     interest: result.interest ?? null,

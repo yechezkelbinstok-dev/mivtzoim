@@ -218,7 +218,36 @@ await page.click('#kindFilter button[data-kind=""]');
 await page.waitForFunction(() => document.querySelectorAll('.addr-list .addr-row').length === 3);
 check('clearing the filter restores the whole route');
 
+// ---- 2c. a list door asks a different question ----
+await page.click('.addr-row[data-id="101-first-street"]');
+assert.equal(await page.isVisible('#fieldStill'), true, 'the still-there question shows');
+assert.equal(await page.isHidden('#fieldAnswered'), true, 'no answered/no-answer on a list door');
+assert.equal(await page.isHidden('#fieldJewish'), true, 'no jewish/not-jewish on a list door');
+assert.equal(await page.isHidden('#fieldInterest'), true, 'no interest scale on a list door');
+assert.equal(await page.isVisible('#fNotes'), true, 'notes still apply');
+check('a shliach\'s-list door asks "still there?" and notes, nothing else');
+
+await page.click('#fStill .choice[data-value="false"]');
+await page.fill('#fNotes', 'עברו דירה');
+const putsBeforeList = puts.length;
+await page.click('#saveBtn');
+await waitForPut(putsBeforeList + 1, 'list door');
+const listSaved = puts[puts.length - 1].data.addresses.find((a) => a.address === '101 First Street');
+assert.equal(listSaved.visits[0].still_there, false);
+assert.equal(listSaved.visits[0].notes, 'עברו דירה');
+assert.equal(listSaved.visits[0].answered, null, 'answered is not recorded for a list door');
+assert.equal(listSaved.visits[0].jewish, null);
+assert.equal(listSaved.visits[0].interest, null);
+check('the list door records still-there and notes only');
+
+// a cold door still gets the full set, and no still-there
+await page.click('.addr-row[data-id="103-first-street"]');
+assert.equal(await page.isHidden('#fieldStill'), true, 'no still-there on a cold door');
+assert.equal(await page.isVisible('#fieldAnswered'), true);
+check('a cold door keeps the ordinary fields');
+
 // ---- 3. entering a result ----
+await page.click('.addr-row[data-id="103-first-street"]');
 await page.click('#fAnswered .choice[data-value="true"]');
 await page.click('#fJewish .choice[data-value="true"]');
 await page.click('#fInterest .choice[data-value="some"]');
@@ -230,7 +259,7 @@ await page.waitForFunction(() => document.getElementById('saveText').textContent
 check('save reaches the api and the indicator settles on saved');
 
 const lastPut = puts[puts.length - 1];
-const savedAddr = lastPut.data.addresses.find((a) => a.address === '101 First Street');
+const savedAddr = lastPut.data.addresses.find((a) => a.address === '103 First Street');
 assert.equal(savedAddr.visits.length, 1);
 assert.equal(savedAddr.visits[0].answered, true);
 assert.equal(savedAddr.visits[0].jewish, true);
@@ -242,11 +271,11 @@ assert.equal(lastPut.data.weeks[lastPut.data.currentWeek.weekId]['א'], 'בוח�
 check('the payload carries the result and route; the pair is recorded once per week');
 
 const cur = await page.textContent('.addr-row[aria-current="true"] .addr');
-assert.equal(cur.trim(), '103 First Street');
+assert.equal(cur.trim(), '105 First Street');
 check('saving advances to the next address in route order');
 
 const chipAfter = await page.textContent('.route-chip[aria-pressed="true"]');
-assert.ok(chipAfter.includes('1/3'), `expected 1/3, got ${chipAfter}`);
+assert.ok(chipAfter.includes('2/3'), `expected 2/3, got ${chipAfter}`);
 check('route progress counter advances');
 
 const emptyDraft = await page.$$eval('#fAnswered .choice', (els) =>
@@ -257,7 +286,7 @@ assert.equal(await page.inputValue('#fNotes'), '');
 check('the next address starts with a blank form');
 
 // ---- 4. correcting an already-entered address ----
-await page.click('.addr-row[data-id="101-first-street"]');
+await page.click('.addr-row[data-id="103-first-street"]');
 assert.equal(await page.getAttribute('#fAnswered .choice[data-value="true"]', 'aria-pressed'), 'true');
 assert.equal(await page.inputValue('#fNotes'), 'לחזור בערב');
 check('re-opening an entered address shows what was entered');
@@ -267,7 +296,7 @@ const putsBeforeCorrection = puts.length;
 await page.click('#saveBtn');
 await waitForPut(putsBeforeCorrection + 1, 'correction');
 const corrected = puts[puts.length - 1].data.addresses.find(
-  (a) => a.address === '101 First Street'
+  (a) => a.address === '103 First Street'
 );
 assert.equal(corrected.visits.length, 1, 'still one visit for the week, not a duplicate');
 assert.equal(corrected.visits[0].interest, 'a_lot');
@@ -303,7 +332,7 @@ await page.waitForFunction(() => document.getElementById('saveText').textContent
 await page.reload();
 await page.waitForFunction(() => document.querySelectorAll('.route-chip').length === 2);
 const chipsReload = await page.$$eval('.route-chip', (els) => els.map((e) => e.textContent.trim()));
-assert.ok(chipsReload[0].includes('2/4'), `expected route א at 2/4, got ${chipsReload[0]}`);
+assert.ok(chipsReload[0].includes('3/4'), `expected route א at 3/4, got ${chipsReload[0]}`);
 check('progress survives a reload (read back from the api, not memory)');
 
 const entered = await page.$$eval('.addr-row[data-entered="true"] .addr', (els) =>
@@ -367,12 +396,12 @@ const tiles = await page.$$eval('.tile', (els) =>
   els.map((e) => ({ num: e.querySelector('.num').textContent, cap: e.querySelector('.cap').textContent }))
 );
 assert.equal(tiles[0].num, '6');
-assert.equal(tiles.find((t) => t.cap === 'טרם ביקרו').num, '4');
+assert.equal(tiles.find((t) => t.cap === 'טרם ביקרו').num, '3');
 assert.equal(tiles.find((t) => t.cap === '★ רשימה').num, '1');
 check('dashboard tiles count addresses, coverage and list membership');
 
 await page.selectOption('#fCoverage', 'never');
-await page.waitForFunction(() => document.querySelectorAll('#rows tr').length === 4);
+await page.waitForFunction(() => document.querySelectorAll('#rows tr').length === 3);
 check('coverage filter narrows the table');
 
 await page.selectOption('#fCoverage', '');

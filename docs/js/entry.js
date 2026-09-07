@@ -14,7 +14,7 @@ let selectedRoute = null;
 let currentId = null;
 let searchQuery = '';
 let kindFilter = ''; // '' | 'list' | 'cold'
-let draft = { answered: null, jewish: null, interest: null, notes: '' };
+let draft = { still_there: null, answered: null, jewish: null, interest: null, notes: '' };
 
 const ui = initGate({ onAuthed: start });
 
@@ -196,6 +196,14 @@ function renderCard() {
   }
   if (addr.on_shliach_list) meta.appendChild(pill(t('f_list'), 'list'));
 
+  // A shliach's-list door is not scored on answered/Jewish/interest — the
+  // printed sheet replaces those columns entirely. Notes still apply.
+  const onList = !!addr.on_shliach_list;
+  el('fieldStill').hidden = !onList;
+  el('fieldAnswered').hidden = onList;
+  el('fieldJewish').hidden = onList;
+  el('fieldInterest').hidden = onList;
+
   setChoices();
   el('fNotes').value = draft.notes;
   renderHistory(addr);
@@ -228,6 +236,8 @@ function renderHistory(addr) {
       if (who) routePill.title = who;
       row.appendChild(routePill);
     }
+    if (v.still_there != null)
+      row.appendChild(tag(v.still_there ? t('yes') : t('no'), v.still_there));
     if (v.answered !== null) row.appendChild(tag(v.answered ? t('answered_yes') : t('answered_no'), v.answered));
     if (v.jewish !== null) row.appendChild(tag(v.jewish ? t('jewish_yes') : t('jewish_no'), v.jewish));
     if (v.interest) row.appendChild(tag(interestLabel(v.interest), null));
@@ -270,12 +280,13 @@ function select(id) {
   const thisWeek = addr ? addr.visits.find((v) => v.week === weekId) : null;
   draft = thisWeek
     ? {
+        still_there: thisWeek.still_there ?? null,
         answered: thisWeek.answered,
         jewish: thisWeek.jewish,
         interest: thisWeek.interest,
         notes: thisWeek.notes || '',
       }
-    : { answered: null, jewish: null, interest: null, notes: '' };
+    : { still_there: null, answered: null, jewish: null, interest: null, notes: '' };
   renderList();
   renderCard();
 }
@@ -308,6 +319,7 @@ function advance() {
 /* ---------------- inputs ---------------- */
 
 function wireChoices() {
+  bindGroup('fStill', 'still_there', (v) => v === 'true');
   bindGroup('fAnswered', 'answered', (v) => v === 'true');
   bindGroup('fJewish', 'jewish', (v) => v === 'true');
   bindGroup('fInterest', 'interest', (v) => v);
@@ -330,6 +342,7 @@ function bindGroup(groupId, key, parse) {
 }
 
 function setChoices() {
+  setGroup('fStill', (v) => (v === 'true') === draft.still_there && draft.still_there !== null);
   setGroup('fAnswered', (v) => (v === 'true') === draft.answered && draft.answered !== null);
   setGroup('fJewish', (v) => (v === 'true') === draft.jewish && draft.jewish !== null);
   setGroup('fInterest', (v) => v === draft.interest);
@@ -348,10 +361,19 @@ function wireActions() {
 
 function save() {
   if (!currentId) return;
-  store.apply(
-    { kind: 'visit', addressId: currentId, result: { ...draft } },
-    `visit: ${currentId}`
-  );
+  const addr = store.get().addresses.find((a) => a.id === currentId);
+  // A shliach's-list door records whether the household is still there, plus
+  // notes. A cold door records the ordinary three and never still_there.
+  const result = addr && addr.on_shliach_list
+    ? {
+        still_there: draft.still_there,
+        answered: null,
+        jewish: null,
+        interest: null,
+        notes: draft.notes,
+      }
+    : { ...draft, still_there: null };
+  store.apply({ kind: 'visit', addressId: currentId, result }, `visit: ${currentId}`);
   advance();
   renderRoutes();
 }
