@@ -13,7 +13,9 @@ browser via the GitHub REST API.
 ```
 docs/                 the site (GitHub Pages serves this directory)
   index.html          entry: walk the week's routes, record results per door
-  dashboard.html      every address ever recorded, with its last result
+  dashboard.html      what is worth carrying forward, plus past weeks folded away
+  map.html            the shliach's list, coloured by what entry has established
+  vendor/leaflet/     Leaflet 1.9.4, self-hosted rather than pulled from a CDN
   css/style.css
   js/github-api.js    GitHub REST calls + token storage
   js/vault.js         password-encrypted token vault
@@ -23,6 +25,7 @@ docs/                 the site (GitHub Pages serves this directory)
   js/auth.js          password gate
   js/entry.js         entry page
   js/dashboard.js     dashboard page
+  js/map.js           map page
 tests/                node checks; no build step, no dependencies to install
 ```
 
@@ -116,7 +119,30 @@ One file, `db.json`, in `mivtzoim-data`:
 }
 ```
 
-No coordinates are stored. The site has no map and does not geocode.
+Shliach's-list entries carry `lat`/`lon`, which is what the map draws. Nothing
+is geocoded here — the coordinates come in with the list. Doors picked up by
+walking a route have none, and are not on the map.
+
+### On the list is not the same as done
+
+A door being on the shliach's list says nothing about whether anyone has been
+there. It counts as done only once a visit has been entered against it, and
+then what matters is what the entry said. The map colours exactly that:
+
+| | |
+|---|---|
+| grey | on the list, nothing entered yet |
+| green | entered — still there |
+| red | entered — not there |
+| amber | entered, but the question was left blank |
+
+### Past weeks
+
+A week's route sheet is not kept — it is a scratch list, and the current one is
+replaced when the next is loaded. What survives is the visits, each carrying
+the week and chavrusa it was walked under, and the board reconstructs earlier
+weeks from those. It is folded away at the bottom, since it is history rather
+than something to act on.
 
 ### Two kinds of door
 

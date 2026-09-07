@@ -74,6 +74,21 @@ const ctx = await browser.newContext({ locale: 'he-IL' });
 function seedDb() {
   const db = { version: 1, addresses: [], weeks: {}, currentWeek: null };
   importWeek(db, parseCsv(CSV), '2026-09-07');
+  // two listed doors with coordinates, so the map has something to draw, and
+  // an older week so the past-weeks section has history to show
+  const first = db.addresses.find((a) => a.address === '101 First Street');
+  first.lat = 39.13;
+  first.lon = -84.42;
+  const second = db.addresses.find((a) => a.address === '200 Second Street');
+  second.on_shliach_list = true;
+  second.name_on_list = 'משפחה ב';
+  second.lat = 39.14;
+  second.lon = -84.43;
+  second.visits.push({
+    date: '2026-08-01', week: '2026-08-01', chavrusa: 'ב',
+    still_there: true, answered: null, jewish: null, interest: null, notes: '',
+  });
+  db.weeks['2026-08-01'] = { 'ב': 'בוחר שלישי / בוחר רביעי' };
   return { content: serializeDb(db), sha: 'seed1' };
 }
 let stored = seedDb();
@@ -83,6 +98,14 @@ const puts = [];
 
 await ctx.route('https://fonts.googleapis.com/**', (r) => r.abort());
 await ctx.route('https://fonts.gstatic.com/**', (r) => r.abort());
+// a flat stand-in for the basemap, so the map test does not need the network
+const TILE = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mM8c+bMfwAIRQNkkKGjFgAAAABJRU5ErkJggg==',
+  'base64'
+);
+await ctx.route('https://*.basemaps.cartocdn.com/**', (r) =>
+  r.fulfill({ status: 200, contentType: 'image/png', body: TILE })
+);
 
 await ctx.route('https://api.github.com/**', async (route) => {
   const req = route.request();
@@ -408,7 +431,7 @@ await page.waitForFunction(() => document.querySelectorAll('#rows tr').length > 
 // Of the six: the list door is kept, the cold door with a Jewish household
 // and notes is kept, and the rest are the week's scratch.
 const rowCount = await page.$$eval('#rows tr', (els) => els.length);
-assert.equal(rowCount, 2, `expected the 2 kept doors, got ${rowCount}`);
+assert.equal(rowCount, 3, `expected the 3 kept doors, got ${rowCount}`);
 check('the board defaults to what is worth carrying past the week');
 
 await page.selectOption('#fList', 'all');
@@ -416,16 +439,16 @@ await page.waitForFunction(() => document.querySelectorAll('#rows tr').length ==
 check('everything is still there behind the filter, nothing was discarded');
 
 await page.selectOption('#fList', '');
-await page.waitForFunction(() => document.querySelectorAll('#rows tr').length === 2);
+await page.waitForFunction(() => document.querySelectorAll('#rows tr').length === 3);
 const tiles = await page.$$eval('.tile', (els) =>
   els.map((e) => ({ num: e.querySelector('.num').textContent, cap: e.querySelector('.cap').textContent }))
 );
-assert.equal(tiles[0].num, '2', 'the count matches what the table shows');
-assert.equal(tiles.find((t) => t.cap === '★ רשימה').num, '1');
+assert.equal(tiles[0].num, '3', 'the count matches what the table shows');
+assert.equal(tiles.find((t) => t.cap === '★ רשימה').num, '2');
 check('the tiles count the same doors the table is showing');
 
 await page.selectOption('#fCoverage', 'visited');
-await page.waitForFunction(() => document.querySelectorAll('#rows tr').length === 2);
+await page.waitForFunction(() => document.querySelectorAll('#rows tr').length === 3);
 check('coverage filter applies on top');
 
 await page.selectOption('#fCoverage', '');
@@ -481,6 +504,43 @@ await page.waitForSelector('#boardEmpty:not([hidden])');
 assert.equal(await page.isHidden('.table-wrap'), true, 'no empty table');
 assert.equal(await page.isHidden('.tiles'), true, 'no row of zeroes');
 check('an empty board shows nothing rather than a table of zeroes');
+
+// ---- 9. past weeks, folded away on the board ----
+stored = seedDb();
+await page.evaluate(() => localStorage.removeItem('mivtzoim_db_cache'));
+await page.goto(base + '/dashboard.html');
+await page.waitForFunction(() => document.querySelectorAll('#rows tr').length > 0);
+assert.equal(await page.isVisible('#past'), true, 'the past-weeks section is present');
+assert.equal(await page.isHidden('#pastBody'), true, 'and folded away by default');
+check('earlier weeks are kept out of the way until asked for');
+
+await page.click('#past > summary');
+await page.waitForSelector('#pastBody .past-week');
+const pastText = await page.textContent('#pastBody');
+assert.ok(pastText.includes('8/1/2026'), `expected the older week, got: ${pastText.trim()}`);
+assert.ok(!pastText.includes('9/7/2026'), 'the week being entered is not "past"');
+check('opening it shows the earlier week and its chavrusas');
+
+// ---- 10. the map ----
+await page.goto(base + '/map.html');
+await page.waitForFunction(() => document.querySelectorAll('.leaflet-interactive').length > 0, {
+  timeout: 20000,
+});
+const pins = await page.$$eval('.leaflet-interactive', (e) => e.length);
+assert.equal(pins, 2, `expected a pin per listed door with coordinates, got ${pins}`);
+check('the map draws the shliach\'s list');
+
+const legend = await page.$$eval('.legend-item', (e) =>
+  e.map((x) => x.textContent.replace(/\s+/g, ' ').trim())
+);
+// one entered and still there, one never entered — being on the list is not done
+assert.ok(legend.some((l) => l.includes('1') && l.includes('טרם נרשם')), legend.join(' | '));
+assert.ok(legend.some((l) => l.includes('1') && l.includes('עדיין שם')), legend.join(' | '));
+check('being on the list is not "done" — only an entry makes it so');
+
+await page.click('.legend-item:nth-child(2)'); // not entered yet
+await page.waitForFunction(() => document.querySelectorAll('.leaflet-interactive').length === 1);
+check('the legend filters the map');
 
 assert.deepEqual(errors, [], `page errors: ${errors.join(' | ')}`);
 check('no page errors anywhere in the flow');

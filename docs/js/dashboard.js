@@ -89,6 +89,7 @@ async function start() {
         renderFilterOptions();
         renderTiles();
         renderRows();
+        renderPast();
       },
       onAuthError: () => ui.open(),
     });
@@ -105,6 +106,7 @@ async function start() {
   renderFilterOptions();
   renderTiles();
   renderRows();
+  renderPast();
 }
 
 // With nothing imported there is nothing to show, so the board offers the one
@@ -211,6 +213,54 @@ function renderRows() {
     tr.appendChild(td(v ? v.notes || '' : '', 'notes'));
 
     tbody.appendChild(tr);
+  }
+}
+
+// What was walked in earlier weeks, folded away because it is history rather
+// than something to act on. Reconstructed from the visits themselves: a week's
+// route sheet is not kept, but every entry records the week and the chavrusa
+// it was walked under, which is the part worth looking back at.
+function renderPast() {
+  const weeks = new Map();
+  for (const addr of store.get().addresses) {
+    for (const v of addr.visits) {
+      if (!v.week) continue;
+      if (!weeks.has(v.week)) weeks.set(v.week, new Map());
+      const byRoute = weeks.get(v.week);
+      const code = v.chavrusa || '—';
+      byRoute.set(code, (byRoute.get(code) || 0) + 1);
+    }
+  }
+
+  const current = store.get().currentWeek;
+  const past = [...weeks.entries()]
+    .filter(([week]) => !current || week !== current.weekId)
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1));
+
+  el('past').hidden = past.length === 0;
+  const body = el('pastBody');
+  body.textContent = '';
+
+  for (const [week, byRoute] of past) {
+    const total = [...byRoute.values()].reduce((n, x) => n + x, 0);
+    const div = document.createElement('div');
+    div.className = 'past-week';
+
+    const head = document.createElement('div');
+    head.className = 'past-date';
+    head.textContent = `${formatDate(week)} — ${total} ${t('entered_count')}`;
+    div.appendChild(head);
+
+    const routes = document.createElement('div');
+    routes.className = 'past-routes';
+    for (const [code, n] of [...byRoute.entries()].sort()) {
+      const chip = document.createElement('span');
+      chip.className = 'pill route';
+      chip.textContent = `${code} ${n}`;
+      routes.appendChild(chip);
+    }
+    div.appendChild(routes);
+    body.appendChild(div);
   }
 }
 

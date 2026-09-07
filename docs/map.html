@@ -10,15 +10,20 @@
       href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap"
       rel="stylesheet"
     />
+    <!-- Leaflet 1.9.4, vendored rather than pulled from a CDN: one less
+         third-party request on a page that is meant to be quick, and it can be
+         verified locally instead of taken on trust. BSD-2, see vendor/. -->
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
     <link rel="stylesheet" href="css/style.css" />
+    <script src="vendor/leaflet/leaflet.js"></script>
   </head>
   <body>
     <header class="top">
       <div class="brand" data-i18n="brand">מבצעים</div>
       <nav class="tabs">
         <a href="index.html" data-i18n="nav_entry">רישום</a>
-        <a href="dashboard.html" aria-current="page" data-i18n="nav_board">לוח</a>
-        <a href="map.html" data-i18n="nav_map">מפה</a>
+        <a href="dashboard.html" data-i18n="nav_board">לוח</a>
+        <a href="map.html" aria-current="page" data-i18n="nav_map">מפה</a>
       </nav>
       <div class="spacer"></div>
       <div class="save-state" id="saveState" data-state="idle">
@@ -27,49 +32,9 @@
       <button class="icon-btn" id="settingsBtn" data-i18n-title="settings" title="הגדרות">⚙</button>
     </header>
 
-    <main class="board">
-      <div class="empty" id="boardEmpty" hidden>—</div>
-      <div class="tiles" id="tiles"></div>
-
-      <div class="filters">
-        <input
-          type="search"
-          id="search"
-          data-i18n-placeholder="search_address"
-          placeholder="חיפוש כתובת"
-          autocomplete="off"
-        />
-        <select id="fRoute"></select>
-        <select id="fCoverage"></select>
-        <select id="fList"></select>
-        <div class="spacer"></div>
-        <span class="save-state" id="rowCount"></span>
-      </div>
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th data-i18n="address">כתובת</th>
-              <th data-i18n="list">רשימה</th>
-              <th data-i18n="last_visit">ביקור אחרון</th>
-              <th data-i18n="route">מסלול</th>
-              <th data-i18n="still_there">עדיין שם?</th>
-              <th data-i18n="answered_yes">ענו</th>
-              <th data-i18n="jewish_yes">יהודי</th>
-              <th data-i18n="interest">עניין</th>
-              <th data-i18n="visits">ביקורים</th>
-              <th data-i18n="notes">הערות</th>
-            </tr>
-          </thead>
-          <tbody id="rows"></tbody>
-        </table>
-      </div>
-
-      <details class="past" id="past">
-        <summary data-i18n="past_weeks">שבועות קודמים</summary>
-        <div class="past-body" id="pastBody"></div>
-      </details>
+    <main class="mapmain">
+      <div class="map-legend" id="legend"></div>
+      <div id="map"></div>
     </main>
 
     <div class="overlay" id="settingsOverlay" hidden>
@@ -119,6 +84,6 @@
       </div>
     </div>
 
-    <script type="module" src="js/dashboard.js"></script>
+    <script type="module" src="js/map.js"></script>
   </body>
 </html>
