@@ -180,7 +180,7 @@ check('first address of the route is auto-selected');
 
 assert.equal((await page.textContent('#cardAddr')).trim(), '101 First Street');
 const meta = await page.textContent('#cardMeta');
-assert.ok(meta.includes('מסלול א'), 'route pill');
+assert.ok(meta.includes('חברותא א'), 'chavrusa pill');
 assert.ok(meta.includes('בוחר ראשון'), 'bochurim');
 assert.equal((await page.textContent('#cardName')).trim(), 'משפחה א');
 check('card shows address, route, bochurim, and the list name');

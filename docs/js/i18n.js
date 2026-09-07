@@ -17,12 +17,6 @@ const STRINGS = {
     save_error: 'שגיאה',
     load_failed: 'טעינה נכשלה',
 
-    import: 'ייבוא',
-    import_title: 'ייבוא מסלולים',
-    import_none: 'אין שורות',
-    import_replace: 'החלפת מסלולים',
-    import_open: 'טרם נרשמו',
-    cancel: 'ביטול',
     search_address: 'חיפוש כתובת',
 
     answered_yes: 'ענו',
@@ -37,7 +31,7 @@ const STRINGS = {
     save: 'שמור',
     skip: 'דלג',
     history: 'היסטוריה',
-    route: 'מסלול',
+    route: 'חברותא',
 
     token: 'טוקן',
     sign_in: 'כניסה',
@@ -75,12 +69,6 @@ const STRINGS = {
     save_error: 'Error',
     load_failed: 'Load failed',
 
-    import: 'Import',
-    import_title: 'Import routes',
-    import_none: 'No rows',
-    import_replace: 'Replace routes',
-    import_open: 'not yet entered',
-    cancel: 'Cancel',
     search_address: 'Search address',
 
     answered_yes: 'Answered',
@@ -95,7 +83,7 @@ const STRINGS = {
     save: 'Save',
     skip: 'Skip',
     history: 'History',
-    route: 'Route',
+    route: 'Chavrusa',
 
     token: 'Token',
     sign_in: 'Sign in',
