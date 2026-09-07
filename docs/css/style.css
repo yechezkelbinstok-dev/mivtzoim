@@ -926,10 +926,24 @@ td.notes {
 .addr-row .stack {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+/* inside the stack these are stacked rows, not inline siblings */
+.addr-row .stack .addr,
+.addr-row .stack .listname {
+  display: block;
+  width: 100%;
+  flex: none;
 }
 
 .addr-row .listname {
   font-size: 11px;
+  direction: ltr;
+  text-align: start;
   color: var(--ink-faint);
   overflow: hidden;
   text-overflow: ellipsis;
