@@ -50,6 +50,16 @@ const check = (name) => {
   console.log(`ok - ${name}`);
 };
 
+// Saves are debounced, so the indicator can still read "saved" from the
+// previous write. Wait for the write itself to land.
+async function waitForPut(count, label) {
+  const deadline = Date.now() + 15000;
+  while (puts.length < count) {
+    if (Date.now() > deadline) throw new Error(`timed out waiting for PUT: ${label}`);
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
 await new Promise((r) => server.listen(0, r));
 const base = `http://127.0.0.1:${server.address().port}`;
 
@@ -83,13 +93,17 @@ await ctx.route('https://api.github.com/**', async (route) => {
     return json(200, { content: { sha: 'vault1' } });
   }
 
+  // directory listing — how the page learns db.json's sha without reading it
+  if (/\/mivtzoim-data\/contents\/(\?|$)/.test(url)) {
+    return json(200, stored ? [{ name: 'db.json', sha: stored.sha, type: 'file' }] : []);
+  }
+
   if (url.includes('/contents/db.json')) {
     if (req.method() === 'GET') {
       if (!stored) return json(404, { message: 'Not Found' });
-      return json(200, {
-        content: Buffer.from(stored.content, 'utf8').toString('base64'),
-        sha: stored.sha,
-      });
+      // the page asks for the raw media type, which has no 1 MB ceiling
+      assert.equal(req.headers()['accept'], 'application/vnd.github.raw');
+      return route.fulfill({ status: 200, contentType: 'application/json', body: stored.content });
     }
     if (req.method() === 'PUT') {
       const body = JSON.parse(req.postData());
@@ -173,8 +187,9 @@ await page.click('#fAnswered .choice[data-value="true"]');
 await page.click('#fJewish .choice[data-value="true"]');
 await page.click('#fInterest .choice[data-value="some"]');
 await page.fill('#fNotes', 'לחזור בערב');
+const putsBeforeSave = puts.length;
 await page.click('#saveBtn');
-
+await waitForPut(putsBeforeSave + 1, 'first visit');
 await page.waitForFunction(() => document.getElementById('saveText').textContent === 'נשמר');
 check('save reaches the api and the indicator settles on saved');
 
@@ -186,8 +201,9 @@ assert.equal(savedAddr.visits[0].jewish, true);
 assert.equal(savedAddr.visits[0].interest, 'some');
 assert.equal(savedAddr.visits[0].notes, 'לחזור בערב');
 assert.equal(savedAddr.visits[0].chavrusa, 'א');
-assert.equal(savedAddr.visits[0].bochurim, 'בוחר ראשון / בוחר שני');
-check('the written payload carries the result, route and bochurim');
+assert.equal(savedAddr.visits[0].bochurim, undefined, 'bochurim is not copied onto every visit');
+assert.equal(lastPut.data.weeks[lastPut.data.currentWeek.weekId]['א'], 'בוחר ראשון / בוחר שני');
+check('the payload carries the result and route; the pair is recorded once per week');
 
 const cur = await page.textContent('.addr-row[aria-current="true"] .addr');
 assert.equal(cur.trim(), '103 First Street');
@@ -211,8 +227,9 @@ assert.equal(await page.inputValue('#fNotes'), 'לחזור בערב');
 check('re-opening an entered address shows what was entered');
 
 await page.click('#fInterest .choice[data-value="a_lot"]');
+const putsBeforeCorrection = puts.length;
 await page.click('#saveBtn');
-await page.waitForFunction(() => document.getElementById('saveText').textContent === 'נשמר');
+await waitForPut(putsBeforeCorrection + 1, 'correction');
 const corrected = puts[puts.length - 1].data.addresses.find(
   (a) => a.address === '101 First Street'
 );
@@ -237,14 +254,16 @@ await page.waitForFunction(
   () => document.getElementById('cardAddr').textContent.trim() === '300 Third Street'
 );
 await page.click('#fAnswered .choice[data-value="false"]');
+const putsBeforeAdd = puts.length;
 await page.click('#saveBtn');
-await page.waitForFunction(() => document.getElementById('saveText').textContent === 'נשמר');
+await waitForPut(putsBeforeAdd + 1, 'off-route address');
 const added = puts[puts.length - 1].data.addresses.find((a) => a.address === '300 Third Street');
 assert.ok(added, 'the new address was written');
 assert.equal(added.visits[0].answered, false);
 check('an address not on the printed route can be added and entered');
 
 // ---- 6. persistence across a reload ----
+await page.waitForFunction(() => document.getElementById('saveText').textContent === 'נשמר');
 await page.reload();
 await page.waitForFunction(() => document.querySelectorAll('.route-chip').length === 2);
 const chipsReload = await page.$$eval('.route-chip', (els) => els.map((e) => e.textContent.trim()));

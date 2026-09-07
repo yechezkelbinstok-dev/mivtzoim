@@ -59,13 +59,7 @@ export async function validateToken(token) {
   }
 }
 
-// UTF-8 safe base64 decode/encode (handles Hebrew text in the JSON).
-function b64ToUtf8(b64) {
-  const binary = atob(b64.replace(/\n/g, ''));
-  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-  return new TextDecoder('utf-8').decode(bytes);
-}
-
+// UTF-8 safe base64 encode (handles Hebrew text in the JSON).
 function utf8ToB64(str) {
   const bytes = new TextEncoder().encode(str);
   let binary = '';
@@ -73,26 +67,51 @@ function utf8ToB64(str) {
   return btoa(binary);
 }
 
-// Fetches db.json. Returns { data, sha } — data is the empty default shape
-// if the file doesn't exist yet.
+const CONTENTS_URL = `https://api.github.com/repos/${DATA_OWNER}/${DATA_REPO}/contents`;
+
+// Looks up db.json's blob sha from the directory listing. The listing stays
+// small no matter how large the file is, and the sha is what the next write
+// needs for its conflict check.
+async function fetchDbSha() {
+  const res = await fetch(`${CONTENTS_URL}/?t=${Date.now()}`, {
+    headers: authHeaders(),
+    cache: 'no-store',
+  });
+  if (res.status === 404) return null; // empty repo
+  if (!res.ok) throw new Error(`listing failed: ${res.status}`);
+  const entries = await res.json();
+  const entry = Array.isArray(entries) ? entries.find((e) => e.name === DATA_PATH) : null;
+  return entry ? entry.sha : null;
+}
+
+// Fetches db.json. Returns { data, sha } — data is the empty default shape if
+// the file doesn't exist yet.
+//
+// The content is read with the raw media type rather than the default JSON
+// envelope. The envelope base64-encodes the file and is capped at 1 MB, which
+// this database passes within a few weeks of entry; raw is served up to 100 MB.
 export async function fetchDb() {
-  const res = await fetch(
-    `https://api.github.com/repos/${DATA_OWNER}/${DATA_REPO}/contents/${DATA_PATH}`,
-    { headers: authHeaders() }
-  );
-  if (res.status === 404) {
-    return { data: emptyDb(), sha: null };
-  }
-  if (!res.ok) {
-    throw new Error(`fetchDb failed: ${res.status}`);
-  }
-  const json = await res.json();
-  const text = b64ToUtf8(json.content);
-  return { data: JSON.parse(text), sha: json.sha };
+  const sha = await fetchDbSha();
+  if (!sha) return { data: emptyDb(), sha: null };
+
+  const res = await fetch(`${CONTENTS_URL}/${DATA_PATH}?t=${Date.now()}`, {
+    headers: { ...authHeaders(), Accept: 'application/vnd.github.raw' },
+    cache: 'no-store',
+  });
+  if (res.status === 404) return { data: emptyDb(), sha: null };
+  if (!res.ok) throw new Error(`fetchDb failed: ${res.status}`);
+  const text = await res.text();
+  return { data: JSON.parse(text), sha };
+}
+
+// The on-disk form. Not pretty-printed: indentation is roughly a third of the
+// bytes on a file this shape, and every save re-uploads the whole thing.
+export function serializeDb(data) {
+  return JSON.stringify(data);
 }
 
 export function emptyDb() {
-  return { version: 1, addresses: [], currentWeek: null };
+  return { version: 1, addresses: [], weeks: {}, currentWeek: null };
 }
 
 // Writes db.json. Retries once on a 409 (someone else saved in between) by
@@ -100,7 +119,7 @@ export function emptyDb() {
 export async function saveDb(data, sha, message) {
   const body = {
     message,
-    content: utf8ToB64(JSON.stringify(data, null, 2)),
+    content: utf8ToB64(serializeDb(data)),
     ...(sha ? { sha } : {}),
   };
   const res = await fetch(
@@ -121,21 +140,3 @@ export async function saveDb(data, sha, message) {
   return json.content.sha;
 }
 
-// Read-modify-write helper: fetches the latest db, applies `mutate(data)`,
-// saves it, and retries once on a 409 conflict.
-export async function updateDb(mutate, message) {
-  let { data, sha } = await fetchDb();
-  mutate(data);
-  try {
-    const newSha = await saveDb(data, sha, message);
-    return { data, sha: newSha };
-  } catch (e) {
-    if (e.status === 409) {
-      const fresh = await fetchDb();
-      mutate(fresh.data);
-      const newSha = await saveDb(fresh.data, fresh.sha, message);
-      return { data: fresh.data, sha: newSha };
-    }
-    throw e;
-  }
-}

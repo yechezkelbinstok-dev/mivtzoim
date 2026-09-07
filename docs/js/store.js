@@ -38,6 +38,7 @@ export async function load() {
   db = res.data;
   sha = res.sha;
   if (!db.addresses) db.addresses = [];
+  if (!db.weeks) db.weeks = {};
   if (!('currentWeek' in db)) db.currentWeek = null;
   return db;
 }
@@ -50,11 +51,11 @@ export function get() {
 // op: { kind: 'visit', addressId, result }
 //   | { kind: 'address', address, opts }
 //   | { kind: 'import', rows, weekId }
-export function apply(op, message) {
+export function apply(op, message, { immediate = false } = {}) {
   const result = applyOp(db, op);
   pendingOps.push(op);
   pendingMsg = message || pendingMsg || 'update';
-  scheduleSave();
+  scheduleSave({ immediate });
   return result;
 }
 
@@ -71,9 +72,46 @@ function applyOp(target, op) {
   }
 }
 
-function scheduleSave() {
-  if (saving) return;
-  runSave();
+// Entry is a burst of small edits — one per door, hundreds in a sitting — and
+// each save re-uploads the whole file. Rather than a request per door, changes
+// are coalesced: a save fires once typing pauses, and no later than MAX_WAIT
+// after the first unsaved change so nothing sits in the browser for long.
+const DEBOUNCE_MS = 1500;
+const MAX_WAIT_MS = 6000;
+let debounceTimer = null;
+let firstPendingAt = 0;
+
+function scheduleSave({ immediate = false } = {}) {
+  if (saving) return; // the in-flight save's tail picks up what's queued
+  if (immediate) {
+    clearDebounce();
+    runSave();
+    return;
+  }
+  const now = Date.now();
+  if (!firstPendingAt) firstPendingAt = now;
+  if (now - firstPendingAt >= MAX_WAIT_MS) {
+    clearDebounce();
+    runSave();
+    return;
+  }
+  clearTimeout(debounceTimer);
+  const wait = Math.min(DEBOUNCE_MS, MAX_WAIT_MS - (now - firstPendingAt));
+  debounceTimer = setTimeout(() => {
+    clearDebounce();
+    runSave();
+  }, wait);
+}
+
+function clearDebounce() {
+  clearTimeout(debounceTimer);
+  debounceTimer = null;
+  firstPendingAt = 0;
+}
+
+// Writes anything outstanding right now.
+export function flush() {
+  if (!saving && pendingOps.length) scheduleSave({ immediate: true });
 }
 
 async function runSave() {
@@ -111,6 +149,7 @@ async function replayOntoRemote(msg) {
     db = fresh.data;
     sha = fresh.sha;
     if (!db.addresses) db.addresses = [];
+    if (!db.weeks) db.weeks = {};
     for (const op of pendingOps) {
       try {
         applyOp(db, op);

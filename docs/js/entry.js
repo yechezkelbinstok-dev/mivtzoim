@@ -2,7 +2,7 @@
 
 import { initGate, ensureAuthed } from './auth.js';
 import * as store from './store.js';
-import { parseCsv, slugify } from './data.js';
+import { parseCsv, slugify, bochurimFor } from './data.js';
 import { t, initLangToggle } from './i18n.js';
 
 const interestLabel = (v) => t(`interest_${v}`);
@@ -201,7 +201,12 @@ function renderHistory(addr) {
     date.className = 'visit-date';
     date.textContent = formatDate(v.date);
     row.appendChild(date);
-    if (v.chavrusa) row.appendChild(pill(v.chavrusa, 'route'));
+    if (v.chavrusa) {
+      const routePill = pill(v.chavrusa, 'route');
+      const who = bochurimFor(store.get(), v);
+      if (who) routePill.title = who;
+      row.appendChild(routePill);
+    }
     if (v.answered !== null) row.appendChild(tag(v.answered ? t('answered_yes') : t('answered_no'), v.answered));
     if (v.jewish !== null) row.appendChild(tag(v.jewish ? t('jewish_yes') : t('jewish_no'), v.jewish));
     if (v.interest) row.appendChild(tag(interestLabel(v.interest), null));
@@ -357,6 +362,11 @@ function wireSaveState() {
     el('saveText').textContent = saveText(s);
   });
   box.addEventListener('click', () => store.retry());
+  // Saves are debounced, so anything typed in the last moment would otherwise
+  // sit in the browser when the tab is switched away or closed.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') store.flush();
+  });
   window.addEventListener('beforeunload', (e) => {
     if (store.hasUnsaved()) {
       e.preventDefault();
@@ -425,7 +435,9 @@ function wireImport() {
       : 0;
     if (week && openCount > 0 && !confirm(`${t('import_replace')} — ${openCount} ${t('import_open')}`)) return;
 
-    store.apply({ kind: 'import', rows, weekId: todayIso() }, `import ${rows.length} addresses`);
+    store.apply({ kind: 'import', rows, weekId: todayIso() }, `import ${rows.length} addresses`, {
+      immediate: true,
+    });
     overlay.hidden = true;
     const codes = Object.keys(store.get().currentWeek.routes);
     selectedRoute = codes.length ? codes[0] : null;

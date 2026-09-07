@@ -123,7 +123,24 @@ export function importWeek(db, rows, weekId) {
     routes,
     entered: {},
   };
+
+  // The pair's names are recorded once for the week rather than copied onto
+  // every visit. At ~900 doors a week the duplication was the single largest
+  // thing in the file.
+  if (!db.weeks) db.weeks = {};
+  db.weeks[weekId] = Object.fromEntries(
+    Object.keys(routes).map((code) => [code, routes[code].bochurim || ''])
+  );
   return db;
+}
+
+// The pair who walked a given visit. Reads the per-week record, falling back
+// to a bochurim field on the visit itself for data written before the split.
+export function bochurimFor(db, visit) {
+  if (!visit) return '';
+  const week = db.weeks && db.weeks[visit.week];
+  if (week && week[visit.chavrusa]) return week[visit.chavrusa];
+  return visit.bochurim || '';
 }
 
 // Adds an address that wasn't on the printed route (a shliach's-list entry,
@@ -167,14 +184,12 @@ export function recordVisit(db, addressId, result) {
   const week = db.currentWeek;
   const weekId = week ? week.weekId : new Date().toISOString().slice(0, 10);
   const chavrusa = week ? findRouteFor(week, addressId) : null;
-  const bochurim = chavrusa && week.routes[chavrusa] ? week.routes[chavrusa].bochurim : '';
 
   const existing = addr.visits.find((v) => v.week === weekId);
   const visit = {
     date: new Date().toISOString().slice(0, 10),
     week: weekId,
     chavrusa: chavrusa || (existing && existing.chavrusa) || '',
-    bochurim: bochurim || (existing && existing.bochurim) || '',
     answered: result.answered ?? null,
     jewish: result.jewish ?? null,
     interest: result.interest ?? null,

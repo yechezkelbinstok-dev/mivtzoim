@@ -88,13 +88,12 @@ One file, `db.json`, in `mivtzoim-data`:
       "address": "101 First Street",
       "on_shliach_list": true,        // historical list entry vs. cold door
       "name_on_list": "",
-      "last_route": "א",
+      "last_route": "\u05d0",
       "visits": [
         {
           "date": "2026-09-07",
           "week": "2026-09-07",
-          "chavrusa": "א",
-          "bochurim": "",
+          "chavrusa": "\u05d0",
           "answered": true,           // true | false | null
           "jewish": true,             // true | false | null
           "interest": "some",         // "none" | "some" | "a_lot" | null
@@ -103,21 +102,56 @@ One file, `db.json`, in `mivtzoim-data`:
       ]
     }
   ],
+  "weeks": {                          // the pair per route, once per week
+    "2026-09-07": { "\u05d0": "\u05e9\u05dd / \u05e9\u05dd" }
+  },
   "currentWeek": {                    // the imported route sheet in progress
     "weekId": "2026-09-07",
     "importedAt": "2026-09-07T12:00:00.000Z",
-    "routes": { "א": { "bochurim": "", "addressIds": ["101-first-street"] } },
+    "routes": { "\u05d0": { "bochurim": "", "addressIds": ["101-first-street"] } },
     "entered": { "101-first-street": true }
   }
 }
 ```
 
-Writes are serialized, one request at a time, and carry the file's SHA. If the
-other person saved in between, the page refetches their copy and replays its
-own unsaved operations onto it rather than overwriting.
-
 Import expects the columns produced by the paper-packet generator's
 `door_log.csv`: `chavrusa,bochurim,address,on_shliach_list,name_on_list,answered,jewish,interest,notes`.
+A UTF-8 BOM on the header row is handled. `address` is the identity of a door
+across weeks, so the generator must spell a given address identically every
+week or it will be recorded as two houses.
+
+### Size, and why the file is shaped this way
+
+A week is roughly 900 doors, and every save re-uploads the whole file, so the
+per-visit cost is what matters. Measured against a real week's `door_log.csv`:
+
+| | size |
+|---|---|
+| after importing a week | 138 KB |
+| after entering that week's results | 265 KB |
+| projected after a year of weekly revisits | 5.4 MB |
+
+Three decisions keep it there, and `tests/data.test.mjs` guards the result:
+
+- **Reads use the raw media type.** The default contents API base64-encodes the
+  file into a JSON envelope and caps it at 1 MB, which this database passes
+  after about three weeks of entry. Raw is served up to 100 MB. The blob sha
+  that writes need comes from a separate directory listing, which stays small
+  whatever the file size.
+- **The pair's names are stored once per week**, in `weeks`, not copied onto
+  each of ~900 visits. This was the single largest thing in the file.
+- **The stored JSON is not pretty-printed.** Indentation was about a third of
+  the bytes.
+
+Writes are serialized, one request at a time, and carry the file's SHA. If the
+other person saved in between, the page refetches their copy and replays its
+own unsaved operations onto it rather than overwriting. Saves are also
+debounced, so a burst of entry becomes a handful of requests rather than one
+per door; pending work is flushed when the tab is hidden, and closing with
+unsaved changes warns.
+
+If this ever does approach 100 MB, the next step is splitting visits into
+per-week files and leaving `addresses.json` as the index.
 
 ## Tests
 
