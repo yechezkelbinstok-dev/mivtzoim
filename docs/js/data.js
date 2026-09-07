@@ -3,12 +3,44 @@
 
 export const CHAVRUSA_CODES = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח'];
 
+// Street-type abbreviations, so "100 Example Ave." and "100 Example Avenue"
+// are the same door. The paper generator and the shliach's list spell these
+// inconsistently, and without this each spelling becomes its own record and
+// quietly splits an address's history.
+const STREET_TYPES = {
+  ave: 'avenue',
+  av: 'avenue',
+  st: 'street',
+  rd: 'road',
+  dr: 'drive',
+  ln: 'lane',
+  pl: 'place',
+  ct: 'court',
+  blvd: 'boulevard',
+  ter: 'terrace',
+  terr: 'terrace',
+  cir: 'circle',
+  pkwy: 'parkway',
+  pky: 'parkway',
+  hts: 'heights',
+  sq: 'square',
+  trl: 'trail',
+  hwy: 'highway',
+};
+
 export function slugify(address) {
-  return String(address)
+  const words = String(address)
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length) {
+    const last = words[words.length - 1];
+    if (STREET_TYPES[last]) words[words.length - 1] = STREET_TYPES[last];
+  }
+  return words.join('-');
 }
 
 function truthy(v) {

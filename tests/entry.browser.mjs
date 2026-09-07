@@ -11,6 +11,8 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { parseCsv, importWeek } from '../docs/js/data.js';
+import { serializeDb } from '../docs/js/github-api.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'docs');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
@@ -67,7 +69,14 @@ const browser = await chromium.launch();
 const ctx = await browser.newContext({ locale: 'he-IL' });
 
 // ---- stubbed GitHub ----
-let stored = null; // { content: <utf8 string>, sha }
+// Imports are done for the user outside the site, so the database is seeded
+// here rather than driven through a UI that no longer exists.
+function seedDb() {
+  const db = { version: 1, addresses: [], weeks: {}, currentWeek: null };
+  importWeek(db, parseCsv(CSV), '2026-09-07');
+  return { content: serializeDb(db), sha: 'seed1' };
+}
+let stored = seedDb();
 let readFailure = 0; // when set, the db read returns this status
 let shaN = 0;
 const puts = [];
@@ -156,13 +165,9 @@ assert.ok(vaultJson.ct && vaultJson.salt && vaultJson.iv, 'vault carries ciphert
 assert.ok(!vaultStore.includes('good-token'), 'the token is not stored in the clear');
 check('the token is published encrypted, never in plaintext');
 
-// ---- 2. import ----
-await page.click('#importBtn');
-await page.fill('#csvText', CSV);
-await page.click('#importDo');
-await page.waitForSelector('#importOverlay[hidden]', { state: 'attached' });
+// ---- 2. the seeded week renders ----
 await page.waitForFunction(() => document.querySelectorAll('.route-chip').length === 2);
-check('import builds one chip per chavrusa');
+check('the week loads with one chip per chavrusa');
 
 const chipText = await page.$$eval('.route-chip', (els) => els.map((e) => e.textContent.trim()));
 assert.deepEqual(chipText, ['א0/3', 'ב0/2']);
@@ -413,12 +418,12 @@ check('toggling back returns to hebrew');
 
 // ---- 8. a board with nothing imported ----
 readFailure = 0;
-stored = null; // as if nothing had ever been imported
+stored = null; // as if nothing had ever been loaded
 await page.goto(base + '/dashboard.html');
 await page.waitForSelector('#boardEmpty:not([hidden])');
 assert.equal(await page.isHidden('.table-wrap'), true, 'no empty table');
 assert.equal(await page.isHidden('.tiles'), true, 'no row of zeroes');
-check('an empty board offers the import instead of a table of zeroes');
+check('an empty board shows nothing rather than a table of zeroes');
 
 assert.deepEqual(errors, [], `page errors: ${errors.join(' | ')}`);
 check('no page errors anywhere in the flow');

@@ -219,7 +219,7 @@ function td(text, cls) {
 
 function formatDate(iso) {
   const [y, m, d] = iso.split('-');
-  return `${Number(d)}.${Number(m)}.${y}`;
+  return `${Number(m)}/${Number(d)}/${y}`;
 }
 
 // Surfaces a failed load instead of silently showing an empty page.

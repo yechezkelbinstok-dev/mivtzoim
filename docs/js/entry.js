@@ -2,7 +2,7 @@
 
 import { initGate, ensureAuthed } from './auth.js';
 import * as store from './store.js';
-import { parseCsv, slugify, bochurimFor } from './data.js';
+import { slugify, bochurimFor } from './data.js';
 import { t, initLangToggle } from './i18n.js';
 
 const interestLabel = (v) => t(`interest_${v}`);
@@ -29,7 +29,6 @@ async function init() {
   wireChoices();
   wireKindFilter();
   wireSearch();
-  wireImport();
   wireActions();
   const ok = await ensureAuthed(ui);
   if (ok) start();
@@ -258,7 +257,7 @@ function formatDate(iso) {
   if (!iso) return '—';
   const [y, m, d] = iso.split('-');
   if (!y || !m || !d) return iso;
-  return `${Number(d)}.${Number(m)}.${y}`;
+  return `${Number(m)}/${Number(d)}/${y}`;
 }
 
 /* ---------------- selection ---------------- */
@@ -410,82 +409,6 @@ function wireSaveState() {
   });
 }
 
-/* ---------------- import ---------------- */
-
-function wireImport() {
-  const overlay = el('importOverlay');
-  const fileInput = el('fileInput');
-  const drop = el('drop');
-  const csvText = el('csvText');
-  const status = el('importStatus');
-
-  const setStatus = (text, cls) => {
-    status.textContent = text;
-    status.className = `status-label ${cls || ''}`;
-  };
-
-  const openImport = () => {
-    overlay.hidden = false;
-    csvText.value = '';
-    setStatus('');
-  };
-  el('importBtn').addEventListener('click', openImport);
-  el('emptyImport').addEventListener('click', openImport);
-  el('importCancel').addEventListener('click', () => {
-    overlay.hidden = true;
-  });
-
-  drop.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files[0];
-    if (file) csvText.value = await file.text();
-  });
-  ['dragover', 'dragenter'].forEach((ev) =>
-    drop.addEventListener(ev, (e) => {
-      e.preventDefault();
-      drop.classList.add('hot');
-    })
-  );
-  ['dragleave', 'drop'].forEach((ev) =>
-    drop.addEventListener(ev, () => drop.classList.remove('hot'))
-  );
-  drop.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) csvText.value = await file.text();
-  });
-
-  el('importDo').addEventListener('click', () => {
-    const rows = parseCsv(csvText.value).filter((r) => (r.address || '').trim());
-    if (!rows.length) {
-      setStatus(t('import_none'), 'bad');
-      return;
-    }
-    const week = store.get().currentWeek;
-    const openCount = week
-      ? Object.values(week.routes).reduce(
-          (n, r) => n + r.addressIds.filter((id) => !week.entered[id]).length,
-          0
-        )
-      : 0;
-    if (week && openCount > 0 && !confirm(`${t('import_replace')} — ${openCount} ${t('import_open')}`)) return;
-
-    store.apply({ kind: 'import', rows, weekId: todayIso() }, `import ${rows.length} addresses`, {
-      immediate: true,
-    });
-    overlay.hidden = true;
-    const codes = Object.keys(store.get().currentWeek.routes);
-    selectedRoute = codes.length ? codes[0] : null;
-    searchQuery = '';
-    el('search').value = '';
-    renderAll();
-    selectFirstUnentered();
-  });
-}
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 // Surfaces a failed load instead of silently showing an empty page.
 function showLoadError() {

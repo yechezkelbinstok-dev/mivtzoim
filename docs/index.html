@@ -32,7 +32,6 @@
         <div class="rail-head">
           <div class="week-line">
             <span class="week-id" id="weekId">—</span>
-            <button class="link-btn" id="importBtn" data-i18n="import">ייבוא</button>
           </div>
           <div class="routes" id="routes"></div>
           <div class="kind-filter" id="kindFilter">
@@ -54,9 +53,7 @@
       </aside>
 
       <section class="work panel" id="work">
-        <div class="empty" id="workEmpty">
-          <button class="drop drop-cta" id="emptyImport">door_log.csv</button>
-        </div>
+        <div class="empty" id="workEmpty">—</div>
         <div id="workCard" hidden>
           <div class="work-head">
             <div style="flex: 1; min-width: 0">
@@ -133,20 +130,6 @@
         <div class="row">
           <button class="btn-primary" id="gateOk" data-i18n="ok">אישור</button>
           <button class="btn-ghost" id="gateOut" data-i18n="sign_out">יציאה</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="overlay" id="importOverlay" hidden>
-      <div class="dialog">
-        <h2 data-i18n="import_title">ייבוא מסלולים</h2>
-        <div class="drop" id="drop">door_log.csv</div>
-        <input type="file" id="fileInput" accept=".csv,text/csv" hidden />
-        <textarea class="csv" id="csvText" spellcheck="false"></textarea>
-        <div class="status-label" id="importStatus"></div>
-        <div class="row">
-          <button class="btn-primary" id="importDo" data-i18n="import">ייבוא</button>
-          <button class="btn-ghost" id="importCancel" data-i18n="cancel">ביטול</button>
         </div>
       </div>
     </div>

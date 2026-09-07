@@ -47,6 +47,15 @@ check('slugify: stable, collides same as source', () => {
   assert.equal(slugify('200 Second Street, Apt 2'), '200-second-street-apt-2');
 });
 
+check('slugify: abbreviated street types are the same door', () => {
+  assert.equal(slugify('100 Example Ave.'), slugify('100 Example Avenue'));
+  assert.equal(slugify('200 Sample Rd'), slugify('200 Sample Road'));
+  assert.equal(slugify('300 Sample Ln'), slugify('300 Sample Lane'));
+  assert.equal(slugify('400 Sample Pl'), slugify('400 Sample Place'));
+  // only the trailing word is a street type; a house named "Court" is not
+  assert.notEqual(slugify('12 Court Street'), slugify('12 Street Street'));
+});
+
 check('importWeek: creates addresses, builds routes, no visits yet', () => {
   const db = emptyDb();
   const rows = parseCsv(sampleCsv);
