@@ -329,7 +329,7 @@ const tiles = await page.$$eval('.tile', (els) =>
   els.map((e) => ({ num: e.querySelector('.num').textContent, cap: e.querySelector('.cap').textContent }))
 );
 assert.equal(tiles[0].num, '6');
-assert.equal(tiles.find((t) => t.cap === 'טרם').num, '4');
+assert.equal(tiles.find((t) => t.cap === 'טרם ביקרו').num, '4');
 assert.equal(tiles.find((t) => t.cap === '★ רשימה').num, '1');
 check('dashboard tiles count addresses, coverage and list membership');
 
@@ -350,14 +350,17 @@ assert.equal(await page.getAttribute('html', 'lang'), 'en');
 check('language toggle switches the document to english and ltr');
 
 const enTiles = await page.$$eval('.tile .cap', (els) => els.map((e) => e.textContent));
-assert.ok(enTiles.includes('Never'), `expected a Never tile, got ${enTiles.join(', ')}`);
+assert.ok(
+  enTiles.includes('Never visited'),
+  `expected a "Never visited" tile, got ${enTiles.join(', ')}`
+);
 const enHeaders = await page.$$eval('thead th', (els) => els.map((e) => e.textContent));
 assert.ok(enHeaders.includes('Address'), `expected Address header, got ${enHeaders.join(', ')}`);
 assert.ok(enHeaders.includes('Coverage'));
 check('tiles and table headers follow the language');
 
 const enCoverage = await page.$$eval('#fCoverage option', (els) => els.map((e) => e.textContent));
-assert.ok(enCoverage.includes('Recent') && enCoverage.includes('Never'));
+assert.ok(enCoverage.includes('Under 2 months') && enCoverage.includes('Never visited'));
 check('filter dropdowns follow the language');
 
 const addrCell = await page.textContent('#rows tr:first-child td:first-child');
@@ -372,8 +375,17 @@ check('language choice survives a reload');
 await page.click('#langBtn');
 await page.waitForFunction(() => document.documentElement.dir === 'rtl');
 const heTiles = await page.$$eval('.tile .cap', (els) => els.map((e) => e.textContent));
-assert.ok(heTiles.includes('טרם'));
+assert.ok(heTiles.includes('טרם ביקרו'));
 check('toggling back returns to hebrew');
+
+// ---- 8. a board with nothing imported ----
+readFailure = 0;
+stored = null; // as if nothing had ever been imported
+await page.goto(base + '/dashboard.html');
+await page.waitForSelector('#boardEmpty:not([hidden])');
+assert.equal(await page.isHidden('.table-wrap'), true, 'no empty table');
+assert.equal(await page.isHidden('.tiles'), true, 'no row of zeroes');
+check('an empty board offers the import instead of a table of zeroes');
 
 assert.deepEqual(errors, [], `page errors: ${errors.join(' | ')}`);
 check('no page errors anywhere in the flow');

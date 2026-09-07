@@ -98,7 +98,18 @@ async function start() {
   renderRows();
 }
 
+// With nothing imported there is nothing to show, so the board offers the one
+// action that changes that rather than an empty table.
+function renderEmptyState() {
+  const empty = store.get().addresses.length === 0;
+  el('boardEmpty').hidden = !empty;
+  document.querySelector('.tiles').hidden = empty;
+  document.querySelector('.filters').hidden = empty;
+  document.querySelector('.table-wrap').hidden = empty;
+}
+
 function renderTiles() {
+  renderEmptyState();
   const addresses = store.get().addresses;
   const counts = { fresh: 0, stale: 0, old: 0, never: 0 };
   let jewish = 0;
