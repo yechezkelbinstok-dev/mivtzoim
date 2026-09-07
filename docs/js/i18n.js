@@ -10,7 +10,8 @@ const STRINGS = {
     brand: 'מבצעים',
     nav_entry: 'רישום',
     nav_board: 'לוח',
-    lang_next: 'EN',
+    settings: 'הגדרות',
+    language: 'שפה',
 
     save_saving: 'שומר',
     save_saved: 'נשמר',
@@ -52,6 +53,8 @@ const STRINGS = {
     cov_never: 'טרם ביקרו',
     all: 'הכל',
     f_list: '★ רשימה',
+    f_kept: 'רלוונטי',
+    f_everything: 'הכל כולל זמניות',
     f_cold: 'דלת חדשה',
     still_there: 'עדיין שם?',
     yes: 'כן',
@@ -62,7 +65,8 @@ const STRINGS = {
     brand: 'Mivtzoim',
     nav_entry: 'Entry',
     nav_board: 'Board',
-    lang_next: 'עב',
+    settings: 'Settings',
+    language: 'Language',
 
     save_saving: 'Saving',
     save_saved: 'Saved',
@@ -104,6 +108,8 @@ const STRINGS = {
     cov_never: 'Never visited',
     all: 'All',
     f_list: '★ List',
+    f_kept: 'Kept',
+    f_everything: 'Everything',
     f_cold: 'New door',
     still_there: 'Still there?',
     yes: 'Yes',
@@ -156,15 +162,23 @@ export function applyLang() {
   });
 }
 
-// Wires the header toggle. `onChange` re-renders whatever the page draws
-// dynamically.
-export function initLangToggle(onChange) {
-  const btn = document.getElementById('langBtn');
+// Wires the language picker inside the settings dialog. `onChange` redraws
+// whatever the page renders dynamically.
+export function initLangPicker(onChange) {
   applyLang();
-  if (!btn) return;
-  btn.addEventListener('click', () => {
-    setLang(nextLang());
+  const wrap = document.getElementById('langPicker');
+  if (!wrap) return;
+  const mark = () =>
+    wrap.querySelectorAll('button').forEach((b) =>
+      b.setAttribute('aria-pressed', String(b.dataset.lang === getLang()))
+    );
+  mark();
+  wrap.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    setLang(btn.dataset.lang);
     applyLang();
+    mark();
     if (onChange) onChange();
   });
 }

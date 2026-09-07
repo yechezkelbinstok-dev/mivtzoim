@@ -13,6 +13,7 @@ import {
   latestVisit,
   daysSince,
   coverageStatus,
+  isKept,
   CHAVRUSA_CODES,
 } from '../docs/js/data.js';
 import { serializeDb } from '../docs/js/github-api.js';
@@ -149,6 +150,29 @@ check('coverageStatus: visited or never, nothing in between', () => {
   // however long ago, it is still just "visited" — the date is in the row
   addr.visits[0].date = '2019-01-01';
   assert.equal(coverageStatus(addr), 'visited');
+});
+
+check('isKept: a route is scratch; the list and anything found survive it', () => {
+  const db = emptyDb();
+  importWeek(db, parseCsv(sampleCsv), '2026-09-05');
+  const list = db.addresses.find((a) => a.on_shliach_list);
+  const cold = db.addresses.find((a) => !a.on_shliach_list);
+
+  assert.equal(isKept(list), true, 'a shliach\'s-list door always survives');
+  assert.equal(isKept(cold), false, 'an unwalked cold door is just this week\'s scratch');
+
+  recordVisit(db, cold.id, { answered: false, jewish: null, interest: null, notes: '' });
+  assert.equal(isKept(cold), false, 'no answer is not worth carrying forward');
+
+  recordVisit(db, cold.id, { answered: true, jewish: false, interest: null, notes: '' });
+  assert.equal(isKept(cold), false, 'not Jewish either');
+
+  recordVisit(db, cold.id, { answered: true, jewish: true, interest: null, notes: '' });
+  assert.equal(isKept(cold), true, 'a Jewish household does survive');
+
+  const other = addAddress(db, '900 Ninth Street');
+  recordVisit(db, other.id, { answered: true, jewish: null, interest: null, notes: 'call back' });
+  assert.equal(isKept(other), true, 'so does anything written down');
 });
 
 check('bochurimFor falls back to a visit written before the per-week split', () => {

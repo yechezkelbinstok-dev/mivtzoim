@@ -10,8 +10,11 @@
 import { fetchDb, saveDb } from './github-api.js';
 import { importWeek, recordVisit, addAddress } from './data.js';
 
+const CACHE_KEY = 'mivtzoim_db_cache';
+
 let db = null;
 let sha = null;
+let etag = null;
 let saving = false;
 let pendingOps = [];
 let pendingMsg = '';
@@ -33,14 +36,79 @@ export function getState() {
   return state;
 }
 
-export async function load() {
+function normalize(data) {
+  if (!data.addresses) data.addresses = [];
+  if (!data.weeks) data.weeks = {};
+  if (!('currentWeek' in data)) data.currentWeek = null;
+  return data;
+}
+
+function readCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const c = JSON.parse(raw);
+    return c && c.data && c.data.addresses ? c : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache() {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ data: db, sha, etag }));
+  } catch {
+    // over quota, or storage blocked — the cache is an optimisation only
+  }
+}
+
+export function clearCache() {
+  try {
+    localStorage.removeItem(CACHE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+// Loads the database. The whole file comes from another repository over the
+// network, which is far too slow to sit and wait for on every page load. So a
+// copy is kept in this browser: when one exists the page renders from it
+// immediately and a conditional request runs in the background, which comes
+// back 304 and costs nothing whenever the data has not changed.
+//
+// `onRefresh` is called only if the background fetch actually brought
+// something new, so the page can redraw.
+export async function load({ onRefresh, onAuthError } = {}) {
+  const cached = readCache();
+  if (cached) {
+    db = normalize(cached.data);
+    sha = cached.sha;
+    etag = cached.etag;
+    refresh(onRefresh, onAuthError);
+    return db;
+  }
   const res = await fetchDb();
-  db = res.data;
+  db = normalize(res.data);
   sha = res.sha;
-  if (!db.addresses) db.addresses = [];
-  if (!db.weeks) db.weeks = {};
-  if (!('currentWeek' in db)) db.currentWeek = null;
+  etag = res.etag;
+  writeCache();
   return db;
+}
+
+async function refresh(onRefresh, onAuthError) {
+  try {
+    const res = await fetchDb(etag);
+    if (res.notModified) return;
+    // never overwrite work that has not been written back yet
+    if (pendingOps.length || saving) return;
+    db = normalize(res.data);
+    sha = res.sha;
+    etag = res.etag;
+    writeCache();
+    if (onRefresh) onRefresh();
+  } catch (e) {
+    if ((e.status === 401 || e.status === 403) && onAuthError) onAuthError();
+  }
 }
 
 export function get() {
@@ -124,6 +192,8 @@ async function runSave() {
   const msg = pendingMsg;
   try {
     sha = await saveDb(db, sha, msg);
+    etag = null; // our own write invalidates it; the next load refetches
+    writeCache();
     pendingOps = pendingOps.slice(inFlight);
     saving = false;
     if (pendingOps.length) {
@@ -148,6 +218,7 @@ async function replayOntoRemote(msg) {
     const fresh = await fetchDb();
     db = fresh.data;
     sha = fresh.sha;
+    etag = fresh.etag;
     if (!db.addresses) db.addresses = [];
     if (!db.weeks) db.weeks = {};
     for (const op of pendingOps) {
@@ -160,6 +231,8 @@ async function replayOntoRemote(msg) {
     saving = true;
     const inFlight = pendingOps.length;
     sha = await saveDb(db, sha, msg);
+    etag = null;
+    writeCache();
     pendingOps = pendingOps.slice(inFlight);
     saving = false;
     setState(pendingOps.length ? 'saving' : 'saved');

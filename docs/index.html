@@ -23,8 +23,7 @@
       <div class="save-state" id="saveState" data-state="idle">
         <span class="dot"></span><span id="saveText"></span>
       </div>
-      <button class="icon-btn lang-btn" id="langBtn" data-i18n="lang_next">EN</button>
-      <button class="icon-btn" id="gateBtn" data-i18n-title="sign_in" title="כניסה">🔒</button>
+      <button class="icon-btn" id="settingsBtn" data-i18n-title="settings" title="הגדרות">⚙</button>
     </header>
 
     <main class="entry">
@@ -112,6 +111,24 @@
       </section>
     </main>
 
+    <div class="overlay" id="settingsOverlay" hidden>
+      <div class="dialog narrow">
+        <h2 data-i18n="settings">הגדרות</h2>
+        <div class="field">
+          <div class="label" data-i18n="language">שפה</div>
+          <div class="choices" id="langPicker">
+            <button class="choice" data-lang="he">עברית</button>
+            <button class="choice" data-lang="en">English</button>
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn-primary" id="settingsClose" data-i18n="ok">אישור</button>
+          <div class="spacer"></div>
+          <button class="btn-ghost" id="signOut" data-i18n="sign_out">יציאה</button>
+        </div>
+      </div>
+    </div>
+
     <div class="overlay" id="gateOverlay" hidden>
       <div class="dialog narrow">
         <div class="key-icon">🔒</div>
@@ -137,7 +154,6 @@
         <div class="status-label" id="gateStatus"></div>
         <div class="row">
           <button class="btn-primary" id="gateOk" data-i18n="ok">אישור</button>
-          <button class="btn-ghost" id="gateOut" data-i18n="sign_out">יציאה</button>
         </div>
       </div>
     </div>

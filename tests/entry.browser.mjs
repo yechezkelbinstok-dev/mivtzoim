@@ -304,12 +304,19 @@ check('correcting updates the same visit instead of duplicating it');
 
 // the save indicator is already showing a value here, so it catches a
 // language switch that only repaints on the next state change
-await page.click('#langBtn');
+await page.click('#settingsBtn');
+await page.click('#langPicker button[data-lang="en"]');
 await page.waitForFunction(() => document.documentElement.dir === 'ltr');
 assert.equal(await page.textContent('#saveText'), 'Saved');
+await page.click('#settingsClose');
+await page.waitForSelector('#settingsOverlay[hidden]', { state: 'attached' });
 check('save indicator re-renders into the new language');
-await page.click('#langBtn');
+
+await page.click('#settingsBtn');
+await page.click('#langPicker button[data-lang="he"]');
 await page.waitForFunction(() => document.documentElement.dir === 'rtl');
+await page.click('#settingsClose');
+await page.waitForSelector('#settingsOverlay[hidden]', { state: 'attached' });
 
 // ---- 5. off-route address ----
 await page.fill('#search', '300 Third Street');
@@ -342,9 +349,9 @@ assert.ok(entered.includes('101 First Street'));
 check('entered addresses stay marked after reload');
 
 // ---- 6b. the co-runner's path: password only, no token anywhere ----
-await page.click('#gateBtn');
-await page.waitForSelector('#gateOverlay:not([hidden])');
-await page.click('#gateOut'); // sign out, dropping the stored token
+await page.click('#settingsBtn');
+await page.waitForSelector('#settingsOverlay:not([hidden])');
+await page.click('#signOut'); // drops the token and the cached copy
 await page.reload();
 await page.waitForSelector('#gateOverlay:not([hidden])');
 assert.equal(await page.isHidden('#setupRow'), true, 'no token field once a vault exists');
@@ -369,7 +376,17 @@ assert.equal(await page.isHidden('#gateOverlay'), true);
 check('the password is asked once per machine, not every visit');
 
 // ---- 6c. a failed read must never look like an empty database ----
+// With a cached copy, a failed refresh keeps showing what it already had.
 readFailure = 500;
+await page.reload();
+await page.waitForFunction(() => document.querySelectorAll('.route-chip').length === 2);
+assert.equal(await page.isHidden('#workCard'), false, 'the cached week still renders');
+check('a failed refresh keeps the cached data on screen');
+
+// With no cache, there is nothing to fall back on, so it must be an error —
+// never an empty database.
+readFailure = 500;
+await page.evaluate(() => localStorage.removeItem('mivtzoim_db_cache'));
 await page.reload();
 await page.waitForFunction(
   () => document.getElementById('saveState').dataset.state === 'error',
@@ -378,7 +395,7 @@ await page.waitForFunction(
 assert.equal(await page.isHidden('#workCard'), true, 'no entry card on a failed read');
 const chipsOnFailure = await page.$$eval('.route-chip', (els) => els.length);
 assert.equal(chipsOnFailure, 0, 'must not render an empty week');
-check('a failed read shows an error rather than an empty database');
+check('with no cache, a failed read is an error rather than an empty database');
 
 readFailure = 0;
 await page.reload();
@@ -388,31 +405,38 @@ check('recovering from the failure restores the real data');
 // ---- 7. dashboard ----
 await page.goto(base + '/dashboard.html');
 await page.waitForFunction(() => document.querySelectorAll('#rows tr').length > 0);
+// Of the six: the list door is kept, the cold door with a Jewish household
+// and notes is kept, and the rest are the week's scratch.
 const rowCount = await page.$$eval('#rows tr', (els) => els.length);
-assert.equal(rowCount, 6, 'five imported + one added');
-check('dashboard lists every address ever recorded');
+assert.equal(rowCount, 2, `expected the 2 kept doors, got ${rowCount}`);
+check('the board defaults to what is worth carrying past the week');
 
+await page.selectOption('#fList', 'all');
+await page.waitForFunction(() => document.querySelectorAll('#rows tr').length === 6);
+check('everything is still there behind the filter, nothing was discarded');
+
+await page.selectOption('#fList', '');
+await page.waitForFunction(() => document.querySelectorAll('#rows tr').length === 2);
 const tiles = await page.$$eval('.tile', (els) =>
   els.map((e) => ({ num: e.querySelector('.num').textContent, cap: e.querySelector('.cap').textContent }))
 );
-assert.equal(tiles[0].num, '6');
-assert.equal(tiles.find((t) => t.cap === 'טרם ביקרו').num, '3');
-assert.equal(tiles.find((t) => t.cap === 'ביקרו').num, '3');
+assert.equal(tiles[0].num, '2', 'the count matches what the table shows');
 assert.equal(tiles.find((t) => t.cap === '★ רשימה').num, '1');
-check('dashboard tiles count addresses, coverage and list membership');
+check('the tiles count the same doors the table is showing');
 
-await page.selectOption('#fCoverage', 'never');
-await page.waitForFunction(() => document.querySelectorAll('#rows tr').length === 3);
-check('coverage filter narrows the table');
+await page.selectOption('#fCoverage', 'visited');
+await page.waitForFunction(() => document.querySelectorAll('#rows tr').length === 2);
+check('coverage filter applies on top');
 
 await page.selectOption('#fCoverage', '');
 await page.fill('#search', 'first');
-await page.waitForFunction(() => document.querySelectorAll('#rows tr').length === 3);
+await page.waitForFunction(() => document.querySelectorAll('#rows tr').length === 2);
 check('address search filters the table');
 
 // ---- 8. language ----
 await page.fill('#search', '');
-await page.click('#langBtn');
+await page.click('#settingsBtn');
+await page.click('#langPicker button[data-lang="en"]');
 await page.waitForFunction(() => document.documentElement.dir === 'ltr');
 assert.equal(await page.getAttribute('html', 'lang'), 'en');
 check('language toggle switches the document to english and ltr');
@@ -440,8 +464,10 @@ await page.waitForFunction(() => document.querySelectorAll('#rows tr').length > 
 assert.equal(await page.getAttribute('html', 'dir'), 'ltr');
 check('language choice survives a reload');
 
-await page.click('#langBtn');
+await page.click('#settingsBtn');
+await page.click('#langPicker button[data-lang="he"]');
 await page.waitForFunction(() => document.documentElement.dir === 'rtl');
+await page.click('#settingsClose');
 const heTiles = await page.$$eval('.tile .cap', (els) => els.map((e) => e.textContent));
 assert.ok(heTiles.includes('טרם ביקרו'));
 check('toggling back returns to hebrew');
@@ -449,6 +475,7 @@ check('toggling back returns to hebrew');
 // ---- 8. a board with nothing imported ----
 readFailure = 0;
 stored = null; // as if nothing had ever been loaded
+await page.evaluate(() => localStorage.removeItem('mivtzoim_db_cache'));
 await page.goto(base + '/dashboard.html');
 await page.waitForSelector('#boardEmpty:not([hidden])');
 assert.equal(await page.isHidden('.table-wrap'), true, 'no empty table');

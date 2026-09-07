@@ -3,7 +3,8 @@
 import { initGate, ensureAuthed } from './auth.js';
 import * as store from './store.js';
 import { slugify, bochurimFor } from './data.js';
-import { t, initLangToggle } from './i18n.js';
+import { t, initLangPicker } from './i18n.js';
+import { clearToken } from './github-api.js';
 
 const interestLabel = (v) => t(`interest_${v}`);
 const saveText = (s) => (s === 'idle' ? '' : t(`save_${s}`));
@@ -21,7 +22,7 @@ const ui = initGate({ onAuthed: start });
 init();
 
 async function init() {
-  initLangToggle(() => {
+  wireSettings(() => {
     el('saveText').textContent = saveText(store.getState());
     if (store.get()) renderAll();
   });
@@ -36,7 +37,15 @@ async function init() {
 
 async function start() {
   try {
-    await store.load();
+    // Renders from this browser's cached copy at once when there is one, and
+    // redraws only if the background refresh actually brings something new.
+    await store.load({
+      onRefresh: () => {
+        renderAll();
+        if (selectedRoute && !currentId) selectFirstUnentered();
+      },
+      onAuthError: () => ui.open(),
+    });
   } catch (e) {
     // A failed read is an error, not an empty database. Never render the page
     // as though there were no data.
@@ -433,6 +442,25 @@ function wireSaveState() {
 
 
 // Surfaces a failed load instead of silently showing an empty page.
+
+// Settings: language, and signing this browser out. Signing out drops the
+// token and the cached copy of the database, since both are this machine's.
+function wireSettings(onLangChange) {
+  const overlay = el('settingsOverlay');
+  initLangPicker(onLangChange);
+  el('settingsBtn').addEventListener('click', () => {
+    overlay.hidden = false;
+  });
+  el('settingsClose').addEventListener('click', () => {
+    overlay.hidden = true;
+  });
+  el('signOut').addEventListener('click', () => {
+    clearToken();
+    store.clearCache();
+    location.reload();
+  });
+}
+
 function showLoadError() {
   const box = document.getElementById('saveState');
   box.dataset.state = 'error';

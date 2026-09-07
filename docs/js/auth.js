@@ -28,8 +28,6 @@ export function initGate({ onAuthed }) {
   const tokenInput = document.getElementById('setupToken');
   const status = document.getElementById('gateStatus');
   const okBtn = document.getElementById('gateOk');
-  const outBtn = document.getElementById('gateOut');
-  const openBtn = document.getElementById('gateBtn');
 
   let vault = null;
   let setupMode = false;
@@ -53,14 +51,6 @@ export function initGate({ onAuthed }) {
   const close = () => {
     overlay.hidden = true;
   };
-
-  openBtn.addEventListener('click', open);
-
-  outBtn.addEventListener('click', () => {
-    clearToken();
-    pw.value = '';
-    setStatus('');
-  });
 
   const submit = async () => {
     const password = pw.value.trim();
@@ -120,17 +110,16 @@ export function initGate({ onAuthed }) {
   return { open, close };
 }
 
-// True when this browser already holds a working token, so the password is
-// asked for once per machine rather than every visit.
+// True when this browser already holds a token, so the password is asked for
+// once per machine rather than every visit.
+//
+// The token is NOT verified here. Doing so cost a full round trip to
+// api.github.com before anything could render, on every single page load, to
+// re-confirm something that is almost always fine. The very next call is the
+// database read, which fails with a 401 if the token is bad, and the pages
+// already open this gate on that. One request instead of two.
 export async function ensureAuthed(ui) {
-  const token = getToken();
-  if (!token) {
-    await ui.open();
-    return false;
-  }
-  const res = await validateToken(token);
-  if (!res.ok) {
-    clearToken();
+  if (!getToken()) {
     await ui.open();
     return false;
   }

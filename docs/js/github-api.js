@@ -83,12 +83,14 @@ const CONTENTS_URL = `https://api.github.com/repos/${DATA_OWNER}/${DATA_REPO}/co
 // failed load indistinguishable from having no data: the site came up looking
 // like every address had vanished. A read that did not succeed must never
 // render as an empty database.
-export async function fetchDb() {
-  const res = await fetch(`${CONTENTS_URL}/${DATA_PATH}?t=${Date.now()}`, {
-    headers: authHeaders(),
-    cache: 'no-store',
-  });
-  if (res.status === 404) return { data: emptyDb(), sha: null };
+export async function fetchDb(etag) {
+  const headers = authHeaders();
+  // If nothing changed, GitHub answers 304 with no body — the usual case on a
+  // page load, and far cheaper than re-sending the whole database.
+  if (etag) headers['If-None-Match'] = etag;
+  const res = await fetch(`${CONTENTS_URL}/${DATA_PATH}`, { headers, cache: 'no-store' });
+  if (res.status === 304) return { notModified: true };
+  if (res.status === 404) return { data: emptyDb(), sha: null, etag: null };
   if (!res.ok) {
     const e = new Error(`fetchDb failed: ${res.status}`);
     e.status = res.status;
@@ -98,7 +100,11 @@ export async function fetchDb() {
   if (!json || typeof json.content !== 'string' || typeof json.sha !== 'string') {
     throw new Error('fetchDb: unexpected response shape');
   }
-  return { data: JSON.parse(b64ToUtf8(json.content)), sha: json.sha };
+  return {
+    data: JSON.parse(b64ToUtf8(json.content)),
+    sha: json.sha,
+    etag: res.headers.get('etag'),
+  };
 }
 
 // The on-disk form. Not pretty-printed: indentation is roughly a third of the

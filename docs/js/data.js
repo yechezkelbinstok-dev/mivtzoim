@@ -263,3 +263,20 @@ export function daysSince(dateStr) {
 export function coverageStatus(addr) {
   return latestVisit(addr) ? 'visited' : 'never';
 }
+
+// Whether a door is worth carrying forward past the week it was walked.
+//
+// The addresses on a printed route are a scratch list: every door on a street,
+// generated so a chavrusa has something to walk. Most of them are nobody, the
+// routes often go unfinished, and next week's sheets may cover somewhere else
+// entirely. They are not a standing list of houses to revisit.
+//
+// What survives the week is the shliach's list, plus any cold door that turned
+// out to be worth remembering — a Jewish household, any interest at all, or
+// something written down about it.
+export function isKept(addr) {
+  if (addr.on_shliach_list) return true;
+  return addr.visits.some(
+    (v) => v.jewish === true || v.interest || (v.notes && v.notes.trim())
+  );
+}

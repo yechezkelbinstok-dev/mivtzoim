@@ -2,8 +2,9 @@
 
 import { initGate, ensureAuthed } from './auth.js';
 import * as store from './store.js';
-import { latestVisit, coverageStatus } from './data.js';
-import { t, initLangToggle } from './i18n.js';
+import { latestVisit, coverageStatus, isKept } from './data.js';
+import { t, initLangPicker } from './i18n.js';
+import { clearToken } from './github-api.js';
 
 const interestLabel = (v) => t(`interest_${v}`);
 const coverageLabel = (v) => t(`cov_${v}`);
@@ -40,10 +41,13 @@ function renderFilterOptions() {
     ['visited', t('cov_visited')],
     ['never', t('cov_never')],
   ]);
+  // Default to what is worth carrying forward. A week's cold doors that
+  // produced nothing are still stored, but they are not what this view is for.
   build('fList', [
-    ['', t('all')],
+    ['', t('f_kept')],
     ['list', t('f_list')],
     ['cold', t('f_cold')],
+    ['all', t('f_everything')],
   ]);
 }
 
@@ -52,7 +56,7 @@ const ui = initGate({ onAuthed: start });
 init();
 
 async function init() {
-  initLangToggle(() => {
+  wireSettings(() => {
     el('saveText').textContent = saveText(store.getState());
     renderFilterOptions();
     if (store.get()) {
@@ -80,7 +84,14 @@ async function init() {
 
 async function start() {
   try {
-    await store.load();
+    await store.load({
+      onRefresh: () => {
+        renderFilterOptions();
+        renderTiles();
+        renderRows();
+      },
+      onAuthError: () => ui.open(),
+    });
   } catch (e) {
     // A failed read is an error, not an empty database. Never render the page
     // as though there were no data.
@@ -108,7 +119,8 @@ function renderEmptyState() {
 
 function renderTiles() {
   renderEmptyState();
-  const addresses = store.get().addresses;
+  const all = store.get().addresses;
+  const addresses = all.filter(isKept);
   const counts = { visited: 0, never: 0 };
   let jewish = 0;
   let onList = 0;
@@ -140,8 +152,9 @@ function renderTiles() {
 function matches(addr) {
   if (filters.q && !addr.address.toLowerCase().includes(filters.q)) return false;
   if (filters.coverage && coverageStatus(addr) !== filters.coverage) return false;
+  if (filters.list === '' && !isKept(addr)) return false;
   if (filters.list === 'list' && !addr.on_shliach_list) return false;
-  if (filters.list === 'cold' && addr.on_shliach_list) return false;
+  if (filters.list === 'cold' && (addr.on_shliach_list || !isKept(addr))) return false;
   if (filters.route) {
     const v = latestVisit(addr);
     const route = (v && v.chavrusa) || addr.last_route;
@@ -214,6 +227,25 @@ function formatDate(iso) {
 }
 
 // Surfaces a failed load instead of silently showing an empty page.
+
+// Settings: language, and signing this browser out. Signing out drops the
+// token and the cached copy of the database, since both are this machine's.
+function wireSettings(onLangChange) {
+  const overlay = el('settingsOverlay');
+  initLangPicker(onLangChange);
+  el('settingsBtn').addEventListener('click', () => {
+    overlay.hidden = false;
+  });
+  el('settingsClose').addEventListener('click', () => {
+    overlay.hidden = true;
+  });
+  el('signOut').addEventListener('click', () => {
+    clearToken();
+    store.clearCache();
+    location.reload();
+  });
+}
+
 function showLoadError() {
   const box = document.getElementById('saveState');
   box.dataset.state = 'error';
