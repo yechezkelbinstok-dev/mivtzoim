@@ -15,8 +15,19 @@ import { chromium } from 'playwright';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'docs');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
 
+let vaultStore = null; // stands in for docs/vault.json once setup publishes it
+
 const server = http.createServer((req, res) => {
   const rel = decodeURIComponent(req.url.split('?')[0]);
+  if (rel === '/vault.json') {
+    if (!vaultStore) {
+      res.writeHead(404).end('no vault');
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(vaultStore);
+    return;
+  }
   const file = path.join(ROOT, rel === '/' ? 'index.html' : rel);
   if (!file.startsWith(ROOT) || !fs.existsSync(file)) {
     res.writeHead(404).end('nope');
@@ -65,6 +76,13 @@ await ctx.route('https://api.github.com/**', async (route) => {
     return json(200, { full_name: 'yechezkelbinstok-dev/mivtzoim-data', private: true });
   }
 
+  if (url.includes('/mivtzoim/contents/docs/vault.json')) {
+    if (req.method() === 'GET') return json(404, { message: 'Not Found' });
+    const body = JSON.parse(req.postData());
+    vaultStore = Buffer.from(body.content, 'base64').toString('utf8');
+    return json(200, { content: { sha: 'vault1' } });
+  }
+
   if (url.includes('/contents/db.json')) {
     if (req.method() === 'GET') {
       if (!stored) return json(404, { message: 'Not Found' });
@@ -97,20 +115,34 @@ page.on('console', (m) => {
   errors.push(m.text());
 });
 
-// ---- 1. token gate ----
+// ---- 1. first-run setup, then password-only login ----
+const PASSWORD = 'test-password'; // fixture only — never the real site password
+
 await page.goto(base + '/index.html');
-await page.waitForSelector('#tokenOverlay:not([hidden])');
-check('token overlay blocks the page when no token is stored');
+await page.waitForSelector('#gateOverlay:not([hidden])');
+check('the gate blocks the page before anyone is signed in');
 
-await page.fill('#tokenInput', 'bad-token');
-await page.click('#tokenSave');
-await page.waitForFunction(() => document.getElementById('tokenStatus').textContent.trim() === 'טוקן לא תקין');
-check('a rejected token reports back and keeps the gate up');
+await page.waitForSelector('#setupRow:not([hidden])');
+check('first run asks for a token once, since no vault exists yet');
 
-await page.fill('#tokenInput', 'good-token');
-await page.click('#tokenSave');
-await page.waitForSelector('#tokenOverlay[hidden]', { state: 'attached' });
-check('a valid token dismisses the gate');
+await page.fill('#pwInput', PASSWORD);
+await page.fill('#setupToken', 'bad-token');
+await page.click('#gateOk');
+await page.waitForFunction(
+  () => document.getElementById('gateStatus').textContent.trim() === 'טוקן לא תקין'
+);
+check('setup rejects a token that cannot reach the data repo');
+
+await page.fill('#setupToken', 'good-token');
+await page.click('#gateOk');
+await page.waitForSelector('#gateOverlay[hidden]', { state: 'attached' });
+check('setup succeeds and lets the page through');
+
+assert.ok(vaultStore, 'vault.json was published');
+const vaultJson = JSON.parse(vaultStore);
+assert.ok(vaultJson.ct && vaultJson.salt && vaultJson.iv, 'vault carries ciphertext');
+assert.ok(!vaultStore.includes('good-token'), 'the token is not stored in the clear');
+check('the token is published encrypted, never in plaintext');
 
 // ---- 2. import ----
 await page.click('#importBtn');
@@ -224,6 +256,33 @@ const entered = await page.$$eval('.addr-row[data-entered="true"] .addr', (els) 
 );
 assert.ok(entered.includes('101 First Street'));
 check('entered addresses stay marked after reload');
+
+// ---- 6b. the co-runner's path: password only, no token anywhere ----
+await page.click('#gateBtn');
+await page.waitForSelector('#gateOverlay:not([hidden])');
+await page.click('#gateOut'); // sign out, dropping the stored token
+await page.reload();
+await page.waitForSelector('#gateOverlay:not([hidden])');
+assert.equal(await page.isHidden('#setupRow'), true, 'no token field once a vault exists');
+check('with a vault published, the gate asks for the password only');
+
+await page.fill('#pwInput', '11111');
+await page.click('#gateOk');
+await page.waitForFunction(
+  () => document.getElementById('gateStatus').textContent.trim() === 'סיסמה שגויה'
+);
+check('a wrong password is refused');
+
+await page.fill('#pwInput', PASSWORD);
+await page.click('#gateOk');
+await page.waitForSelector('#gateOverlay[hidden]', { state: 'attached' });
+await page.waitForFunction(() => document.querySelectorAll('.route-chip').length === 2);
+check('the right password decrypts the token and opens the week');
+
+await page.reload();
+await page.waitForFunction(() => document.querySelectorAll('.route-chip').length === 2);
+assert.equal(await page.isHidden('#gateOverlay'), true);
+check('the password is asked once per machine, not every visit');
 
 // ---- 7. dashboard ----
 await page.goto(base + '/dashboard.html');

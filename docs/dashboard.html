@@ -24,7 +24,7 @@
         <span class="dot"></span><span id="saveText"></span>
       </div>
       <button class="icon-btn lang-btn" id="langBtn" data-i18n="lang_next">EN</button>
-      <button class="icon-btn" id="tokenBtn" data-i18n-title="token" title="טוקן">🔑</button>
+      <button class="icon-btn" id="gateBtn" data-i18n-title="sign_in" title="כניסה">🔒</button>
     </header>
 
     <main class="board">
@@ -66,24 +66,32 @@
       </div>
     </main>
 
-    <div class="overlay" id="tokenOverlay" hidden>
+    <div class="overlay" id="gateOverlay" hidden>
       <div class="dialog narrow">
-        <div class="key-icon">🔑</div>
-        <h2 data-i18n="token">טוקן</h2>
-        <input type="password" id="tokenInput" autocomplete="off" spellcheck="false" />
-        <div class="status-label" id="tokenStatus"></div>
-        <div class="row">
-          <button class="btn-primary" id="tokenSave" data-i18n="ok">אישור</button>
-          <button class="btn-ghost" id="tokenClear" data-i18n="clear">מחיקה</button>
-          <div class="spacer"></div>
+        <div class="key-icon">🔒</div>
+        <h2 data-i18n="sign_in">כניסה</h2>
+        <input
+          type="password"
+          id="pwInput"
+          inputmode="numeric"
+          autocomplete="current-password"
+          spellcheck="false"
+        />
+        <div class="setup-row" id="setupRow" hidden>
+          <div class="label" data-i18n="token">טוקן</div>
+          <input type="password" id="setupToken" autocomplete="off" spellcheck="false" />
           <a
             class="link-btn ltr"
-            id="tokenCreate"
             target="_blank"
             rel="noopener"
             href="https://github.com/settings/personal-access-tokens/new"
             >github.com ↗</a
           >
+        </div>
+        <div class="status-label" id="gateStatus"></div>
+        <div class="row">
+          <button class="btn-primary" id="gateOk" data-i18n="ok">אישור</button>
+          <button class="btn-ghost" id="gateOut" data-i18n="sign_out">יציאה</button>
         </div>
       </div>
     </div>

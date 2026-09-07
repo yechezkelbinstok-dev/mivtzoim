@@ -1,6 +1,6 @@
 // Dashboard: every address ever recorded, its coverage, and its latest result.
 
-import { initTokenUI, ensureAuthed } from './auth.js';
+import { initGate, ensureAuthed } from './auth.js';
 import * as store from './store.js';
 import { latestVisit, coverageStatus } from './data.js';
 import { t, initLangToggle } from './i18n.js';
@@ -49,7 +49,7 @@ function renderFilterOptions() {
   ]);
 }
 
-const ui = initTokenUI({ onAuthed: start });
+const ui = initGate({ onAuthed: start });
 
 init();
 

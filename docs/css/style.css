@@ -847,3 +847,22 @@ td.notes {
     max-height: none;
   }
 }
+
+.setup-row {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.setup-row .label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  margin-bottom: 8px;
+}
+
+.setup-row .link-btn {
+  display: inline-block;
+  margin-top: 8px;
+  text-decoration: none;
+}

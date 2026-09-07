@@ -16,9 +16,11 @@ docs/                 the site (GitHub Pages serves this directory)
   dashboard.html      every address ever recorded, coverage and last result
   css/style.css
   js/github-api.js    GitHub REST calls + token storage
+  js/vault.js         password-encrypted token vault
+  js/i18n.js          Hebrew/English strings and direction
   js/data.js          address/visit model, CSV import, coverage rules
   js/store.js         in-memory db + serialized write queue
-  js/auth.js          token gate
+  js/auth.js          password gate
   js/entry.js         entry page
   js/dashboard.js     dashboard page
 tests/                node checks; no build step, no dependencies to install
@@ -31,14 +33,47 @@ branch* → Branch `main`, folder `/docs`.
 
 ## Access
 
-The site holds no credentials. Each person pastes a GitHub personal access
-token into the page once; it is kept in that browser's `localStorage` and is
-sent only to `api.github.com`. It is never committed, never hardcoded, and
-never sent anywhere else.
+Everyday use is a single password. Open the site, type it, and you are in —
+no username, no token, nothing else. The password is asked once per browser.
 
-The token needs read and write access to **contents** of the private
-`mivtzoim-data` repository (a fine-grained token scoped to just that
-repository is enough).
+Behind that, a GitHub token still has to exist, because the private data repo
+is reached through the GitHub API. It is created **once, ever**, by whoever
+sets the site up:
+
+1. First visit to a fresh site: the gate asks for a password and a token.
+2. Create a fine-grained token at
+   https://github.com/settings/personal-access-tokens/new with
+   **Contents: Read and write** on `mivtzoim-data`, plus the same on this repo
+   so the vault can be written once.
+3. Enter it with the chosen password. The token is encrypted with that
+   password (PBKDF2-SHA256, 600k iterations → AES-GCM) and published as
+   `docs/vault.json`.
+
+After that nobody handles a token again. Everyone else — and the same person
+on any other machine — types the password only; the page fetches `vault.json`,
+decrypts the token, and keeps it in that browser.
+
+To change the password or rotate the token, delete `docs/vault.json` and the
+gate returns to setup.
+
+### What this protects against, and what it does not
+
+`docs/vault.json` is public, and the password is short. The encryption slows
+an attacker down; it does not stop one. Anyone who finds this repository can
+take `vault.json` and try candidate passwords offline until the token falls
+out, and a short numeric password does not survive that for long. The token
+they recover reads and writes every address, name, and note in
+`mivtzoim-data`.
+
+This is a deliberate tradeoff, chosen knowingly in favour of a login the
+non-technical user will actually use. It is written down so that whoever reads
+this later knows exactly what the password is and is not doing. Real protection
+needs the password checked somewhere the public cannot read — a small
+server-side function holding the token, or a backend service with its own
+accounts.
+
+If the token is ever exposed, revoke it on GitHub, delete `docs/vault.json`,
+and run setup again with a new token.
 
 ## Data
 

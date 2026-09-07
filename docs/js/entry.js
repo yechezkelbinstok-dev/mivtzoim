@@ -1,6 +1,6 @@
 // Entry page: import a week's routes, then walk the route entering results.
 
-import { initTokenUI, ensureAuthed } from './auth.js';
+import { initGate, ensureAuthed } from './auth.js';
 import * as store from './store.js';
 import { parseCsv, slugify } from './data.js';
 import { t, initLangToggle } from './i18n.js';
@@ -15,7 +15,7 @@ let currentId = null;
 let searchQuery = '';
 let draft = { answered: null, jewish: null, interest: null, notes: '' };
 
-const ui = initTokenUI({ onAuthed: start });
+const ui = initGate({ onAuthed: start });
 
 init();
 
