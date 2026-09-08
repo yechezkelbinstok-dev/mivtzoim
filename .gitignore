@@ -1,0 +1,16 @@
+node_modules
+node_modules/
+.DS_Store
+
+# Throwaway harness scripts used to drive the live site during development.
+# They decrypt the vault and carry the site password, so they must never be
+# committed to this public repository.
+*.tmp.mjs
+*.tmp.js
+probe*.mjs
+
+# Nothing containing real addresses, names, or visit data belongs in this
+# repository. Data lives only in the private mivtzoim-data repo.
+*.csv
+db.json
+out/

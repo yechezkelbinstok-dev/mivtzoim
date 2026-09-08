@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>מבצעים</title>
+    <link rel="icon" href="favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <meta name="theme-color" content="#faf8f4" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand" data-i18n="brand">מבצעים</div>
+      <nav class="tabs">
+        <a href="index.html" data-i18n="nav_entry">רישום</a>
+        <a href="dashboard.html" aria-current="page" data-i18n="nav_board">לוח</a>
+        <a href="map.html" data-i18n="nav_map">מפה</a>
+      </nav>
+      <div class="spacer"></div>
+      <div class="save-state" id="saveState" data-state="idle">
+        <span class="dot"></span><span id="saveText"></span>
+      </div>
+      <button class="icon-btn" id="settingsBtn" data-i18n-title="settings" title="הגדרות">⚙</button>
+    </header>
+
+    <main class="board">
+      <div class="empty" id="boardEmpty" hidden>—</div>
+      <div class="tiles" id="tiles"></div>
+
+      <div class="filters">
+        <input
+          type="search"
+          id="search"
+          data-i18n-placeholder="search_address"
+          placeholder="חיפוש כתובת"
+          autocomplete="off"
+        />
+        <select id="fRoute"></select>
+        <select id="fCoverage"></select>
+        <select id="fList"></select>
+        <div class="spacer"></div>
+        <span class="save-state" id="rowCount"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th data-i18n="address">כתובת</th>
+              <th data-i18n="list">רשימה</th>
+              <th data-i18n="last_visit">ביקור אחרון</th>
+              <th data-i18n="route">מסלול</th>
+              <th data-i18n="still_there">עדיין שם?</th>
+              <th data-i18n="answered_yes">ענו</th>
+              <th data-i18n="jewish_yes">יהודי</th>
+              <th data-i18n="interest">עניין</th>
+              <th data-i18n="visits">ביקורים</th>
+              <th data-i18n="notes">הערות</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+
+      <details class="past" id="past">
+        <summary data-i18n="past_weeks">שבועות קודמים</summary>
+        <div class="past-body" id="pastBody"></div>
+      </details>
+    </main>
+
+    <div class="overlay" id="settingsOverlay" hidden>
+      <div class="dialog narrow">
+        <h2 data-i18n="settings">הגדרות</h2>
+        <div class="field">
+          <div class="label" data-i18n="language">שפה</div>
+          <div class="choices" id="langPicker">
+            <button class="choice" data-lang="he">עברית</button>
+            <button class="choice" data-lang="en">English</button>
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn-primary" id="settingsClose" data-i18n="ok">אישור</button>
+          <div class="spacer"></div>
+          <button class="btn-ghost" id="signOut" data-i18n="sign_out">יציאה</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="gateOverlay" hidden>
+      <div class="dialog narrow">
+        <div class="key-icon">🔒</div>
+        <h2 data-i18n="sign_in">כניסה</h2>
+        <input
+          type="password"
+          id="pwInput"
+          inputmode="numeric"
+          autocomplete="current-password"
+          spellcheck="false"
+        />
+        <div class="setup-row" id="setupRow" hidden>
+          <div class="label" data-i18n="token">טוקן</div>
+          <input type="password" id="setupToken" autocomplete="off" spellcheck="false" />
+          <a
+            class="link-btn ltr"
+            target="_blank"
+            rel="noopener"
+            href="https://github.com/settings/personal-access-tokens/new"
+            >github.com ↗</a
+          >
+        </div>
+        <div class="status-label" id="gateStatus"></div>
+        <div class="row">
+          <button class="btn-primary" id="gateOk" data-i18n="ok">אישור</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="js/dashboard.js"></script>
+  </body>
+</html>

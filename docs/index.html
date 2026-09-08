@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>מבצעים</title>
+    <link rel="icon" href="favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <meta name="theme-color" content="#faf8f4" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand" data-i18n="brand">מבצעים</div>
+      <nav class="tabs">
+        <a href="index.html" aria-current="page" data-i18n="nav_entry">רישום</a>
+        <a href="dashboard.html" data-i18n="nav_board">לוח</a>
+        <a href="map.html" data-i18n="nav_map">מפה</a>
+      </nav>
+      <div class="spacer"></div>
+      <div class="save-state" id="saveState" data-state="idle">
+        <span class="dot"></span><span id="saveText"></span>
+      </div>
+      <button class="icon-btn" id="settingsBtn" data-i18n-title="settings" title="הגדרות">⚙</button>
+    </header>
+
+    <main class="entry">
+      <aside class="rail panel">
+        <div class="rail-head">
+          <div class="week-line">
+            <span class="week-id" id="weekId">—</span>
+          </div>
+          <div class="routes" id="routes"></div>
+          <div class="kind-filter" id="kindFilter">
+            <button data-kind="" aria-pressed="true" data-i18n="all">הכל</button>
+            <button data-kind="list" aria-pressed="false" data-i18n="f_list">★ רשימה</button>
+            <button data-kind="cold" aria-pressed="false" data-i18n="f_cold">דלת חדשה</button>
+          </div>
+        </div>
+        <div class="search-wrap">
+          <input
+            type="search"
+            id="search"
+            data-i18n-placeholder="search_address"
+            placeholder="חיפוש כתובת"
+            autocomplete="off"
+          />
+        </div>
+        <div class="addr-list" id="addrList"></div>
+      </aside>
+
+      <section class="work panel" id="work">
+        <div class="empty" id="workEmpty">—</div>
+        <div id="workCard" hidden>
+          <div class="work-head">
+            <div style="flex: 1; min-width: 0">
+              <div class="addr-big ltr" id="cardAddr"></div>
+              <div class="listname-big" id="cardName" hidden></div>
+              <div class="meta-line" id="cardMeta"></div>
+            </div>
+          </div>
+
+          <div class="field" id="fieldStill" hidden>
+            <div class="label" data-i18n="still_there">עדיין שם?</div>
+            <div class="choices" id="fStill">
+              <button class="choice pos" data-value="true" data-i18n="yes">כן</button>
+              <button class="choice neg" data-value="false" data-i18n="no">לא</button>
+              <button class="choice" data-value="no_answer" data-i18n="answered_no">לא ענו</button>
+            </div>
+          </div>
+
+          <div class="field" id="fieldAnswered">
+            <div class="choices" id="fAnswered">
+              <button class="choice pos" data-value="true" data-i18n="answered_yes">ענו</button>
+              <button class="choice neg" data-value="false" data-i18n="answered_no">לא ענו</button>
+            </div>
+          </div>
+
+          <div class="field" id="fieldJewish">
+            <div class="choices" id="fJewish">
+              <button class="choice pos" data-value="true" data-i18n="jewish_yes">יהודי</button>
+              <button class="choice neg" data-value="false" data-i18n="jewish_no">לא יהודי</button>
+            </div>
+          </div>
+
+          <div class="field" id="fieldInterest">
+            <div class="label" data-i18n="interest">עניין</div>
+            <div class="choices" id="fInterest">
+              <button class="choice" data-value="none" data-i18n="interest_none">בכלל לא</button>
+              <button class="choice" data-value="some" data-i18n="interest_some">קצת</button>
+              <button class="choice" data-value="a_lot" data-i18n="interest_a_lot">הרבה</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="label" data-i18n="notes">הערות</div>
+            <textarea class="notes" id="fNotes"></textarea>
+          </div>
+
+          <div class="actions">
+            <button class="btn-primary" id="saveBtn" data-i18n="save">שמור</button>
+            <button class="btn-ghost" id="skipBtn" data-i18n="skip">דלג</button>
+          </div>
+
+          <div class="history" id="history" hidden>
+            <div class="label" data-i18n="history">היסטוריה</div>
+            <div id="historyRows"></div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="context panel" id="context" hidden>
+        <div class="context-head">
+          <span class="pill" id="ctxLabel"></span>
+          <span class="ctx-pos" id="ctxPos"></span>
+          <div class="spacer"></div>
+          <button class="ctx-nav" id="ctxPrev" data-i18n-title="prev_on_list" title="הקודם">▲</button>
+          <button class="ctx-nav" id="ctxNext" data-i18n-title="next_on_list" title="הבא">▼</button>
+        </div>
+        <div class="ctx-list" id="ctxList"></div>
+      </aside>
+    </main>
+
+    <div class="overlay" id="settingsOverlay" hidden>
+      <div class="dialog narrow">
+        <h2 data-i18n="settings">הגדרות</h2>
+        <div class="field">
+          <div class="label" data-i18n="language">שפה</div>
+          <div class="choices" id="langPicker">
+            <button class="choice" data-lang="he">עברית</button>
+            <button class="choice" data-lang="en">English</button>
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn-primary" id="settingsClose" data-i18n="ok">אישור</button>
+          <div class="spacer"></div>
+          <button class="btn-ghost" id="signOut" data-i18n="sign_out">יציאה</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="gateOverlay" hidden>
+      <div class="dialog narrow">
+        <div class="key-icon">🔒</div>
+        <h2 data-i18n="sign_in">כניסה</h2>
+        <input
+          type="password"
+          id="pwInput"
+          inputmode="numeric"
+          autocomplete="current-password"
+          spellcheck="false"
+        />
+        <div class="setup-row" id="setupRow" hidden>
+          <div class="label" data-i18n="token">טוקן</div>
+          <input type="password" id="setupToken" autocomplete="off" spellcheck="false" />
+          <a
+            class="link-btn ltr"
+            target="_blank"
+            rel="noopener"
+            href="https://github.com/settings/personal-access-tokens/new"
+            >github.com ↗</a
+          >
+        </div>
+        <div class="status-label" id="gateStatus"></div>
+        <div class="row">
+          <button class="btn-primary" id="gateOk" data-i18n="ok">אישור</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="js/entry.js"></script>
+  </body>
+</html>
