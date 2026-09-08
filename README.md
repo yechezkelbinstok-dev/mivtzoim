@@ -16,6 +16,7 @@ docs/                 the site (GitHub Pages serves this directory)
   dashboard.html      what is worth carrying forward, plus past weeks folded away
   map.html            the shliach's list, coloured by what entry has established
   vendor/leaflet/     Leaflet 1.9.4, self-hosted rather than pulled from a CDN
+  favicon.png         tefillin; apple-touch-icon.png is the same at 180px
   css/style.css
   js/github-api.js    GitHub REST calls + token storage
   js/vault.js         password-encrypted token vault
@@ -224,7 +225,7 @@ A read that does not succeed is never rendered as an empty database — only a
 
 ```
 node tests/data.test.mjs      # 16 checks: model, CSV import, address keys, size
-node tests/entry.browser.mjs  # 64 checks: the real pages against a stubbed API
+node tests/entry.browser.mjs  # 65 checks: the real pages against a stubbed API
 ```
 
 The browser test needs `playwright` available; it serves `docs/`, stubs every

@@ -15,7 +15,13 @@ import { parseCsv, importWeek } from '../docs/js/data.js';
 import { serializeDb } from '../docs/js/github-api.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'docs');
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
+const TYPES = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+};
 
 let vaultStore = null; // stands in for docs/vault.json once setup publishes it
 
@@ -676,6 +682,19 @@ check('a listed door off this week\'s routes is placed in the list itself');
 await page.fill('#search', '');
 await page.waitForSelector('#context[hidden]', { state: 'attached' });
 check('clearing the search puts the placement column away again');
+
+// ---- 12. the icon every page points at actually exists ----
+for (const pageName of ['index.html', 'dashboard.html', 'map.html']) {
+  await page.goto(`${base}/${pageName}`);
+  const href = await page.getAttribute('link[rel="icon"]', 'href');
+  assert.equal(href, 'favicon.png', `${pageName} points at the icon`);
+  const res = await page.request.get(`${base}/${href}`);
+  assert.equal(res.status(), 200, `${pageName}: ${href} is served`);
+  assert.equal((await res.body()).subarray(1, 4).toString(), 'PNG', 'and it is a png');
+  const touch = await page.getAttribute('link[rel="apple-touch-icon"]', 'href');
+  assert.equal((await page.request.get(`${base}/${touch}`)).status(), 200, 'touch icon is served');
+}
+check('every page carries an icon, and both icon files are really there');
 
 assert.deepEqual(errors, [], `page errors: ${errors.join(' | ')}`);
 check('no page errors anywhere in the flow');
