@@ -263,6 +263,32 @@ assert.equal(listSaved.visits[0].jewish, null);
 assert.equal(listSaved.visits[0].interest, null);
 check('the list door records still-there and notes only');
 
+// nobody came to the door is its own answer, distinct from "not there" and
+// from leaving the question blank
+await page.click('.addr-row[data-id="101-first-street"]');
+await page.click('#fStill .choice[data-value="no_answer"]');
+assert.equal(
+  await page.getAttribute('#fStill .choice[data-value="false"]', 'aria-pressed'),
+  'false',
+  'picking no-answer clears the previous choice'
+);
+const putsBeforeNoAnswer = puts.length;
+await page.click('#saveBtn');
+await waitForPut(putsBeforeNoAnswer + 1, 'no answer');
+const noAnswer = puts[puts.length - 1].data.addresses.find(
+  (a) => a.address === '101 First Street'
+);
+assert.equal(noAnswer.visits[0].still_there, 'no_answer');
+assert.equal(noAnswer.visits[0].notes, 'עברו דירה');
+check('a list door can record that nobody answered');
+
+await page.click('.addr-row[data-id="101-first-street"]');
+assert.equal(
+  await page.getAttribute('#fStill .choice[data-value="no_answer"]', 'aria-pressed'),
+  'true'
+);
+check('re-opening it shows no-answer selected, not still-there');
+
 // a cold door still gets the full set, and no still-there
 await page.click('.addr-row[data-id="103-first-street"]');
 assert.equal(await page.isHidden('#fieldStill'), true, 'no still-there on a cold door');
@@ -434,6 +460,13 @@ const rowCount = await page.$$eval('#rows tr', (els) => els.length);
 assert.equal(rowCount, 3, `expected the 3 kept doors, got ${rowCount}`);
 check('the board defaults to what is worth carrying past the week');
 
+const stillCell = await page.$$eval('#rows tr', (rows) => {
+  const row = rows.find((r) => r.cells[0].textContent.includes('101 First Street'));
+  return row ? row.cells[4].textContent.trim() : null;
+});
+assert.equal(stillCell, 'לא ענו', 'the board reads back the third answer');
+check('the still-there column shows no-answer as itself, not as "no"');
+
 await page.selectOption('#fList', 'all');
 await page.waitForFunction(() => document.querySelectorAll('#rows tr').length === 6);
 check('everything is still there behind the filter, nothing was discarded');
@@ -541,6 +574,108 @@ check('being on the list is not "done" — only an entry makes it so');
 await page.click('.legend-item:nth-child(2)'); // not entered yet
 await page.waitForFunction(() => document.querySelectorAll('.leaflet-interactive').length === 1);
 check('the legend filters the map');
+
+// a door where nobody answered is neither "still there" nor "not there"
+stored = (() => {
+  const db = JSON.parse(seedDb().content);
+  db.addresses.find((a) => a.address === '200 Second Street').visits[0].still_there = 'no_answer';
+  return { content: JSON.stringify(db), sha: 'seed-noanswer' };
+})();
+await page.evaluate(() => localStorage.removeItem('mivtzoim_db_cache'));
+await page.goto(base + '/map.html');
+await page.waitForFunction(() => document.querySelectorAll('.leaflet-interactive').length === 2);
+const legendNoAnswer = await page.$$eval('.legend-item', (e) =>
+  e.map((x) => x.textContent.replace(/\s+/g, ' ').trim())
+);
+assert.ok(
+  legendNoAnswer.some((l) => l.includes('1') && l.includes('לא ענו')),
+  legendNoAnswer.join(' | ')
+);
+assert.ok(
+  legendNoAnswer.some((l) => l.includes('0') && l.includes('עדיין שם')),
+  `still-there should have fallen to 0: ${legendNoAnswer.join(' | ')}`
+);
+const fills = await page.$$eval('.leaflet-interactive', (e) =>
+  e.map((x) => x.getAttribute('fill'))
+);
+assert.ok(fills.includes('#3f6d9e'), `expected the no-answer colour, got ${fills.join(', ')}`);
+check('no-answer gets its own colour on the map, not "still there"');
+
+// ---- 11. placement: a door found by search keeps its place in its list ----
+stored = (() => {
+  const db = JSON.parse(seedDb().content);
+  // a listed door that is not on any of this week's routes — the case where
+  // the list itself, not the route sheet, is what a search has to fall back on
+  db.addresses.push({
+    id: '400-fourth-street',
+    address: '400 Fourth Street',
+    on_shliach_list: true,
+    name_on_list: 'משפחה ד',
+    last_route: '',
+    visits: [],
+  });
+  return { content: JSON.stringify(db), sha: 'seed-placement' };
+})();
+await page.evaluate(() => localStorage.removeItem('mivtzoim_db_cache'));
+await page.goto(base + '/index.html');
+await page.waitForFunction(() => document.querySelectorAll('.route-chip').length === 2);
+assert.equal(await page.isHidden('#context'), true, 'nothing to place while walking a route');
+check('the placement column stays out of the way until a search pulls a door out');
+
+await page.fill('#search', 'First');
+await page.click('.addr-row[data-id="105-first-street"]');
+await page.waitForSelector('#context:not([hidden])');
+assert.equal((await page.textContent('#ctxLabel')).trim(), 'חברותא א');
+assert.equal((await page.textContent('#ctxPos')).trim(), '3 / 3');
+const ctxRows = await page.$$eval('#ctxList .addr-row .addr', (e) =>
+  e.map((x) => x.textContent.trim())
+);
+assert.deepEqual(ctxRows, ['101 First Street', '103 First Street', '105 First Street']);
+const ctxCurrent = await page.textContent('#ctxList .addr-row[aria-current="true"] .addr');
+assert.equal(ctxCurrent.trim(), '105 First Street');
+check('a searched door shows where it sits on its route, in route order');
+
+await page.click('#ctxPrev');
+await page.waitForFunction(
+  () => document.getElementById('cardAddr').textContent.trim() === '103 First Street'
+);
+assert.equal((await page.textContent('#ctxPos')).trim(), '2 / 3');
+check('stepping back moves to the address before it on the list');
+
+await page.click('#ctxNext');
+await page.waitForFunction(
+  () => document.getElementById('cardAddr').textContent.trim() === '105 First Street'
+);
+assert.equal(await page.getAttribute('#ctxNext', 'disabled'), '', 'nothing after the last one');
+check('stepping forward moves to the next address on the list');
+
+// skip must follow the list too, not the arbitrary order of search results
+await page.click('.addr-row[data-id="101-first-street"]');
+await page.waitForFunction(
+  () => document.getElementById('cardAddr').textContent.trim() === '101 First Street'
+);
+await page.click('#skipBtn');
+await page.waitForFunction(
+  () => document.getElementById('cardAddr').textContent.trim() === '103 First Street'
+);
+check('skipping from a searched door carries on down its list');
+
+await page.fill('#search', 'Fourth');
+await page.click('.addr-row[data-id="400-fourth-street"]');
+await page.waitForFunction(
+  () => document.getElementById('cardAddr').textContent.trim() === '400 Fourth Street'
+);
+assert.equal((await page.textContent('#ctxLabel')).trim(), '★ רשימה');
+assert.equal((await page.textContent('#ctxPos')).trim(), '3 / 3');
+const listRows = await page.$$eval('#ctxList .addr-row .addr', (e) =>
+  e.map((x) => x.textContent.trim())
+);
+assert.deepEqual(listRows, ['101 First Street', '200 Second Street', '400 Fourth Street']);
+check('a listed door off this week\'s routes is placed in the list itself');
+
+await page.fill('#search', '');
+await page.waitForSelector('#context[hidden]', { state: 'attached' });
+check('clearing the search puts the placement column away again');
 
 assert.deepEqual(errors, [], `page errors: ${errors.join(' | ')}`);
 check('no page errors anywhere in the flow');

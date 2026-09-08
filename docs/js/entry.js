@@ -9,6 +9,12 @@ import { clearToken } from './github-api.js';
 const interestLabel = (v) => t(`interest_${v}`);
 const saveText = (s) => (s === 'idle' ? '' : t(`save_${s}`));
 
+// still_there is three-valued: the household is there, it is not, or nobody
+// came to the door. Stored as true / false / 'no_answer'; older entries hold
+// only the two booleans and keep reading correctly.
+const parseStill = (v) => (v === 'no_answer' ? 'no_answer' : v === 'true');
+const stillLabel = (v) => (v === 'no_answer' ? t('answered_no') : v ? t('yes') : t('no'));
+
 const el = (id) => document.getElementById(id);
 
 let selectedRoute = null;
@@ -72,6 +78,7 @@ function renderAll() {
   renderRoutes();
   renderList();
   renderCard();
+  renderContext();
 }
 
 function renderWeek() {
@@ -218,6 +225,78 @@ function renderCard() {
   renderHistory(addr);
 }
 
+// Where an address sits in the sequence it belongs to: this week's route if it
+// is on one, otherwise the shliach's list in the list's own order. Searching
+// pulls a door out of that sequence, and this is what puts it back.
+function placementOf(id) {
+  const db = store.get();
+  const week = db.currentWeek;
+  const byId = (x) => db.addresses.find((a) => a.id === x);
+  if (week) {
+    const code = routeOf(week, id);
+    if (code) {
+      return {
+        label: `${t('route')} ${code}`,
+        rows: week.routes[code].addressIds.map(byId).filter(Boolean),
+      };
+    }
+  }
+  const addr = byId(id);
+  if (addr && addr.on_shliach_list) {
+    return { label: t('f_list'), rows: db.addresses.filter((a) => a.on_shliach_list) };
+  }
+  return null;
+}
+
+// Shown while a search is in play: the rail is search results then, so this is
+// the only thing left holding the door's place in its list. Off the far side of
+// the card, opposite the search.
+function renderContext() {
+  const panel = el('context');
+  const place = searchQuery && currentId ? placementOf(currentId) : null;
+  const idx = place ? place.rows.findIndex((a) => a.id === currentId) : -1;
+  panel.hidden = !place || idx < 0;
+  document.querySelector('main.entry').classList.toggle('with-context', !panel.hidden);
+  if (panel.hidden) return;
+
+  el('ctxLabel').textContent = place.label;
+  el('ctxPos').textContent = `${idx + 1} / ${place.rows.length}`;
+  el('ctxPrev').disabled = idx === 0;
+  el('ctxNext').disabled = idx === place.rows.length - 1;
+
+  const week = store.get().currentWeek;
+  const list = el('ctxList');
+  list.textContent = '';
+  place.rows.forEach((addr, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'addr-row';
+    btn.dataset.entered = String(week ? !!week.entered[addr.id] : false);
+    btn.dataset.onlist = String(!!addr.on_shliach_list);
+    btn.setAttribute('aria-current', String(addr.id === currentId));
+    btn.innerHTML =
+      `<span class="idx">${i + 1}</span>` +
+      `<span class="stack"><span class="addr ltr"></span>` +
+      (addr.name_on_list ? `<span class="listname"></span>` : '') +
+      `</span><span class="state-dot"></span>`;
+    btn.querySelector('.addr').textContent = addr.address;
+    if (addr.name_on_list) btn.querySelector('.listname').textContent = addr.name_on_list;
+    btn.addEventListener('click', () => select(addr.id));
+    list.appendChild(btn);
+  });
+
+  const current = list.querySelector('[aria-current="true"]');
+  if (current) current.scrollIntoView({ block: 'center' });
+}
+
+// One step along the list the current door sits on, in the list's own order —
+// not the next search result, and not the next unentered door.
+function step(delta) {
+  const place = currentId ? placementOf(currentId) : null;
+  if (!place) return;
+  const next = place.rows[place.rows.findIndex((a) => a.id === currentId) + delta];
+  if (next) select(next.id);
+}
+
 function pill(text, cls) {
   const s = document.createElement('span');
   s.className = `pill ${cls}`;
@@ -246,7 +325,9 @@ function renderHistory(addr) {
       row.appendChild(routePill);
     }
     if (v.still_there != null)
-      row.appendChild(tag(v.still_there ? t('yes') : t('no'), v.still_there));
+      row.appendChild(
+        tag(stillLabel(v.still_there), v.still_there === 'no_answer' ? null : v.still_there)
+      );
     if (v.answered !== null) row.appendChild(tag(v.answered ? t('answered_yes') : t('answered_no'), v.answered));
     if (v.jewish !== null) row.appendChild(tag(v.jewish ? t('jewish_yes') : t('jewish_no'), v.jewish));
     if (v.interest) row.appendChild(tag(interestLabel(v.interest), null));
@@ -298,6 +379,7 @@ function select(id) {
     : { still_there: null, answered: null, jewish: null, interest: null, notes: '' };
   renderList();
   renderCard();
+  renderContext();
 }
 
 function selectFirstUnentered() {
@@ -313,6 +395,18 @@ function selectFirstUnentered() {
 }
 
 function advance() {
+  // Reached by search, the next door is the next one on that door's own list —
+  // the search results are an arbitrary ordering and stepping through them is
+  // not what anyone means by carrying on.
+  if (searchQuery) {
+    const place = currentId ? placementOf(currentId) : null;
+    if (place) {
+      const idx = place.rows.findIndex((a) => a.id === currentId);
+      if (place.rows[idx + 1]) select(place.rows[idx + 1].id);
+      else renderAll();
+      return;
+    }
+  }
   const week = store.get().currentWeek;
   const rows = visibleAddresses();
   const idx = rows.findIndex((a) => a.id === currentId);
@@ -328,7 +422,7 @@ function advance() {
 /* ---------------- inputs ---------------- */
 
 function wireChoices() {
-  bindGroup('fStill', 'still_there', (v) => v === 'true');
+  bindGroup('fStill', 'still_there', parseStill);
   bindGroup('fAnswered', 'answered', (v) => v === 'true');
   bindGroup('fJewish', 'jewish', (v) => v === 'true');
   bindGroup('fInterest', 'interest', (v) => v);
@@ -351,7 +445,7 @@ function bindGroup(groupId, key, parse) {
 }
 
 function setChoices() {
-  setGroup('fStill', (v) => (v === 'true') === draft.still_there && draft.still_there !== null);
+  setGroup('fStill', (v) => draft.still_there !== null && parseStill(v) === draft.still_there);
   setGroup('fAnswered', (v) => (v === 'true') === draft.answered && draft.answered !== null);
   setGroup('fJewish', (v) => (v === 'true') === draft.jewish && draft.jewish !== null);
   setGroup('fInterest', (v) => v === draft.interest);
@@ -366,6 +460,8 @@ function setGroup(groupId, isOn) {
 function wireActions() {
   el('saveBtn').addEventListener('click', save);
   el('skipBtn').addEventListener('click', advance);
+  el('ctxPrev').addEventListener('click', () => step(-1));
+  el('ctxNext').addEventListener('click', () => step(1));
 }
 
 function save() {
@@ -417,6 +513,7 @@ function wireSearch() {
     searchQuery = e.target.value.trim();
     renderRoutes();
     renderList();
+    renderContext();
   });
 }
 

@@ -104,6 +104,22 @@ check('recordVisit: saving twice in the same week updates in place, not a duplic
   assert.equal(addr.visits[0].notes, 'corrected');
 });
 
+check('recordVisit: still_there keeps its three answers, and the old two still read', () => {
+  const db = emptyDb();
+  importWeek(db, parseCsv(sampleCsv), '2026-09-05');
+  const id = slugify('101 First Street');
+  const visit = () => db.addresses.find((a) => a.id === id).visits[0];
+
+  recordVisit(db, id, { still_there: 'no_answer', notes: '' });
+  assert.equal(visit().still_there, 'no_answer');
+  recordVisit(db, id, { still_there: false, notes: '' });
+  assert.equal(visit().still_there, false);
+  recordVisit(db, id, { still_there: true, notes: '' });
+  assert.equal(visit().still_there, true);
+  recordVisit(db, id, { notes: '' });
+  assert.equal(visit().still_there, null, 'left blank stays blank, not "no answer"');
+});
+
 check('recordVisit: unknown address id throws', () => {
   const db = emptyDb();
   assert.throws(() => recordVisit(db, 'nope', {}));

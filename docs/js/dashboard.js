@@ -7,6 +7,9 @@ import { t, initLangPicker } from './i18n.js';
 import { clearToken } from './github-api.js';
 
 const interestLabel = (v) => t(`interest_${v}`);
+// still_there: true / false / 'no_answer', the last meaning nobody came to the
+// door. Entries written before that third option hold only the two booleans.
+const stillLabel = (v) => (v === 'no_answer' ? t('answered_no') : v ? t('yes') : t('no'));
 const coverageLabel = (v) => t(`cov_${v}`);
 const saveText = (s) => (s === 'idle' ? '' : t(`save_${s}`));
 
@@ -205,7 +208,7 @@ function renderRows() {
 
     tr.appendChild(td(v ? `${formatDate(v.date)}` : '—', 'date'));
     tr.appendChild(td(v && v.chavrusa ? v.chavrusa : addr.last_route || ''));
-    tr.appendChild(td(v && v.still_there != null ? (v.still_there ? t('yes') : t('no')) : ''));
+    tr.appendChild(td(v && v.still_there != null ? stillLabel(v.still_there) : ''));
     tr.appendChild(td(v && v.answered !== null ? (v.answered ? t('answered_yes') : t('answered_no')) : ''));
     tr.appendChild(td(v && v.jewish !== null ? (v.jewish ? t('jewish_yes') : t('jewish_no')) : ''));
     tr.appendChild(td(v && v.interest ? interestLabel(v.interest) : ''));

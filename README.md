@@ -99,7 +99,7 @@ One file, `db.json`, in `mivtzoim-data`:
           "date": "2026-09-07",
           "week": "2026-09-07",
           "chavrusa": "\u05d0",
-          "still_there": null,        // list doors only: true | false | null
+          "still_there": null,        // list doors: true|false|"no_answer"|null
           "answered": true,           // cold doors only: true | false | null
           "jewish": true,             // cold doors only: true | false | null
           "interest": "some",         // cold doors only: none|some|a_lot|null
@@ -134,6 +134,7 @@ then what matters is what the entry said. The map colours exactly that:
 | grey | on the list, nothing entered yet |
 | green | entered — still there |
 | red | entered — not there |
+| blue | entered — nobody answered |
 | amber | entered, but the question was left blank |
 
 ### Past weeks
@@ -151,12 +152,25 @@ row, not a normal row with a mark on it: bold, the family name beneath, and the
 result columns replaced outright. The site follows that.
 
 - **Cold door** — ענו / לא ענו, יהודי / לא יהודי, בכלל לא / קצת / הרבה, notes.
-- **Shliach's-list door** — עדיין שם? כן / לא, then notes. The other three are
-  hidden and written as null. For a list built up over decades the question
-  that matters is whether the household is still at the address.
+- **Shliach's-list door** — עדיין שם? כן / לא / לא ענו, then notes. The other
+  three are hidden and written as null. For a list built up over decades the
+  question that matters is whether the household is still at the address, and
+  nobody coming to the door answers neither way — it is its own value,
+  `"no_answer"`, distinct from leaving the question blank. Visits written
+  before it existed hold `true`/`false`/`null` and still read correctly.
 
 Each is stored per visit, so a household can be recorded as gone this year
 having been there last year.
+
+### Finding one door in the middle of a list
+
+Search pulls a door out of whatever order it belongs to, which is exactly what
+is wanted for finding it and exactly wrong for carrying on afterwards. So while
+a search is in play a third column appears on the far side of the card, opposite
+the search: the list that door sits on — this week's route if it is on one,
+otherwise the shliach's list in the list's own order — with its position in it,
+its neighbours either side, and ▲ / ▼ to step through them. Skipping and saving
+follow that list too, not the search results.
 
 ### Getting data in
 
@@ -209,8 +223,8 @@ A read that does not succeed is never rendered as an empty database — only a
 ## Tests
 
 ```
-node tests/data.test.mjs      # 14 checks: model, CSV import, address keys, size
-node tests/entry.browser.mjs  # 46 checks: the real pages against a stubbed API
+node tests/data.test.mjs      # 16 checks: model, CSV import, address keys, size
+node tests/entry.browser.mjs  # 64 checks: the real pages against a stubbed API
 ```
 
 The browser test needs `playwright` available; it serves `docs/`, stubs every

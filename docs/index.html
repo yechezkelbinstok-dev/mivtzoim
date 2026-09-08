@@ -68,6 +68,7 @@
             <div class="choices" id="fStill">
               <button class="choice pos" data-value="true" data-i18n="yes">כן</button>
               <button class="choice neg" data-value="false" data-i18n="no">לא</button>
+              <button class="choice" data-value="no_answer" data-i18n="answered_no">לא ענו</button>
             </div>
           </div>
 
@@ -110,6 +111,17 @@
           </div>
         </div>
       </section>
+
+      <aside class="context panel" id="context" hidden>
+        <div class="context-head">
+          <span class="pill" id="ctxLabel"></span>
+          <span class="ctx-pos" id="ctxPos"></span>
+          <div class="spacer"></div>
+          <button class="ctx-nav" id="ctxPrev" data-i18n-title="prev_on_list" title="הקודם">▲</button>
+          <button class="ctx-nav" id="ctxNext" data-i18n-title="next_on_list" title="הבא">▼</button>
+        </div>
+        <div class="ctx-list" id="ctxList"></div>
+      </aside>
     </main>
 
     <div class="overlay" id="settingsOverlay" hidden>

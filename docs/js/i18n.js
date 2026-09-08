@@ -14,6 +14,7 @@ const STRINGS = {
     map_pending: 'טרם נרשם',
     map_there: 'עדיין שם',
     map_gone: 'לא שם',
+    map_no_answer: 'לא ענו',
     map_entered: 'נרשם',
     past_weeks: 'שבועות קודמים',
     entered_count: 'נרשמו',
@@ -66,6 +67,8 @@ const STRINGS = {
     still_there: 'עדיין שם?',
     yes: 'כן',
     no: 'לא',
+    prev_on_list: 'הקודם',
+    next_on_list: 'הבא',
   },
   en: {
     dir: 'ltr',
@@ -76,6 +79,7 @@ const STRINGS = {
     map_pending: 'Not entered yet',
     map_there: 'Still there',
     map_gone: 'Not there',
+    map_no_answer: 'No answer',
     map_entered: 'Entered',
     past_weeks: 'Past weeks',
     entered_count: 'entered',
@@ -128,6 +132,8 @@ const STRINGS = {
     still_there: 'Still there?',
     yes: 'Yes',
     no: 'No',
+    prev_on_list: 'Previous',
+    next_on_list: 'Next',
   },
 };
 

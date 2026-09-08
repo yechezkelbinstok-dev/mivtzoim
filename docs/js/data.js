@@ -208,8 +208,8 @@ export function addAddress(db, address, { chavrusa = '', on_shliach_list = false
 
 // Appends/updates this week's visit result for one address and marks it
 // entered in currentWeek. `result` = { still_there, answered, jewish, interest,
-// notes } with still_there/answered/jewish as true/false/null and interest as
-// 'none'|'some'|'a_lot'|null.
+// notes } with answered/jewish as true/false/null, still_there as
+// true/false/'no_answer'/null, and interest as 'none'|'some'|'a_lot'|null.
 export function recordVisit(db, addressId, result) {
   const addr = db.addresses.find((a) => a.id === addressId);
   if (!addr) throw new Error(`unknown address id: ${addressId}`);

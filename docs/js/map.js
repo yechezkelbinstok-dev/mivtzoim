@@ -14,17 +14,20 @@ import { clearToken } from './github-api.js';
 const el = (id) => document.getElementById(id);
 const saveText = (s) => (s === 'idle' ? '' : t(`save_${s}`));
 
-// The four states a listed door can be in, and the colour each gets.
+// The states a listed door can be in, and the colour each gets.
 const STATES = {
   pending: '#b9b5ab', // on the list, nobody has entered anything yet
   there: '#1f7a4d', // entered: still there
   gone: '#a33a33', // entered: moved or no longer there
+  no_answer: '#3f6d9e', // entered: nobody came to the door
   entered: '#b58227', // entered, but the question was left blank
 };
+const STATE_KEYS = ['pending', 'there', 'gone', 'no_answer', 'entered'];
 
 function stateOf(addr) {
   const v = latestVisit(addr);
   if (!v) return 'pending';
+  if (v.still_there === 'no_answer') return 'no_answer';
   if (v.still_there === true) return 'there';
   if (v.still_there === false) return 'gone';
   return 'entered';
@@ -147,7 +150,7 @@ function popupFor(addr, state) {
 }
 
 function renderLegend(all) {
-  const counts = { pending: 0, there: 0, gone: 0, entered: 0 };
+  const counts = Object.fromEntries(STATE_KEYS.map((k) => [k, 0]));
   for (const a of all) counts[stateOf(a)]++;
 
   const wrap = el('legend');
@@ -164,7 +167,7 @@ function renderLegend(all) {
   });
   wrap.appendChild(total);
 
-  for (const key of ['pending', 'there', 'gone', 'entered']) {
+  for (const key of STATE_KEYS) {
     if (key === 'entered' && !counts.entered) continue; // rare; hide when unused
     const b = document.createElement('button');
     b.className = 'legend-item';
