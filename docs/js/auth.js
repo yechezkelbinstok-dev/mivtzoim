@@ -1,17 +1,13 @@
 // Password gate.
 //
-// Everyday use: type the site password, nothing else. The GitHub token sits
-// encrypted in vault.json and is decrypted by the password; it is then kept in
-// this browser so the password is asked for once per machine.
+// Everyday use: type this browser's password. The encrypted vault stays in
+// this browser, and the active GitHub token is cached here after sign-in.
 //
-// First run only: vault.json doesn't exist yet, so the gate asks for a token
-// once and publishes the vault. After that nobody sees a token again.
+// First run in each browser: ask for a token and save the vault locally.
 
 import { getToken, setToken, clearToken, validateToken } from './github-api.js';
-import { fetchVault, decryptToken, encryptToken, publishVault } from './vault.js';
+import { fetchVault, decryptToken, encryptToken, saveVault } from './vault.js';
 import { t } from './i18n.js';
-
-const SITE_REPO = 'yechezkelbinstok-dev/mivtzoim';
 
 const MESSAGES = {
   invalid_token: 'token_invalid',
@@ -70,7 +66,7 @@ export function initGate({ onAuthed }) {
           setStatus(message(check.message), 'bad');
           return;
         }
-        await publishVault(await encryptToken(token, password), token, SITE_REPO);
+        await saveVault(await encryptToken(token, password));
         setToken(token);
         setStatus('✓', 'good');
         close();

@@ -19,7 +19,7 @@ docs/                 the site (GitHub Pages serves this directory)
   favicon.png         tefillin; apple-touch-icon.png is the same at 180px
   css/style.css
   js/github-api.js    GitHub REST calls + token storage
-  js/vault.js         password-encrypted token vault
+  js/vault.js         browser-local encrypted token vault
   js/i18n.js          Hebrew/English strings and direction
   js/data.js          address/visit model, CSV import, address keys
   js/store.js         in-memory db + serialized write queue
@@ -37,47 +37,39 @@ branch* → Branch `main`, folder `/docs`.
 
 ## Access
 
-Everyday use is a single password. Open the site, type it, and you are in —
-no username, no token, nothing else. The password is asked once per browser.
+Each browser needs its own initial setup. Create a fine-grained token at
+https://github.com/settings/personal-access-tokens/new with **Contents: Read
+and write** on **only `mivtzoim-data`**, then enter it with a password. No
+permission on this public site repository is needed.
 
-Behind that, a GitHub token still has to exist, because the private data repo
-is reached through the GitHub API. It is created **once, ever**, by whoever
-sets the site up:
+The encrypted vault stays in that browser's `localStorage` (PBKDF2-SHA256,
+600,000 iterations, AES-GCM). Setup never reads or writes `docs/vault.json`.
+After sign-in, the active token is also cached in that browser, as before.
+Signing out removes the active token and cached data; the local vault allows
+password sign-in again in the same browser. A different browser needs a token
+and password of its own.
 
-1. First visit to a fresh site: the gate asks for a password and a token.
-2. Create a fine-grained token at
-   https://github.com/settings/personal-access-tokens/new with
-   **Contents: Read and write** on `mivtzoim-data`, plus the same on this repo
-   so the vault can be written once.
-3. Enter it with the chosen password. The token is encrypted with that
-   password (PBKDF2-SHA256, 600k iterations → AES-GCM) and published as
-   `docs/vault.json`.
+To reset this browser's setup, sign out and remove `mivtzoim_local_vault`
+from this site's local storage. To rotate a token, revoke it on GitHub and
+repeat setup in each browser that used it.
 
-After that nobody handles a token again. Everyone else — and the same person
-on any other machine — types the password only; the page fetches `vault.json`,
-decrypts the token, and keeps it in that browser.
+### Previous public vault exposure
 
-To change the password or rotate the token, delete `docs/vault.json` and the
-gate returns to setup.
+`docs/vault.json` was previously committed publicly. Its metadata records
+600,000 iterations; the previous README describes a short password. The old
+implementation permits offline password guessing. Documentation describes
+the token as having read/write access to private `mivtzoim-data`; its current
+validity and actual permissions have not been verified. There is no evidence
+from this review that anyone recovered or misused it.
 
-### What this protects against, and what it does not
+The file is removed from the current branches and ignored by Git. Setup now
+keeps the vault local so it cannot republish the file. **Revoke the token
+previously stored in the public vault.** Deleting the file does not revoke it
+or erase copies in Git history, caches, forks, or prior downloads. Do not
+reuse that token or publish a replacement vault.
 
-`docs/vault.json` is public, and the password is short. The encryption slows
-an attacker down; it does not stop one. Anyone who finds this repository can
-take `vault.json` and try candidate passwords offline until the token falls
-out, and a short numeric password does not survive that for long. The token
-they recover reads and writes every address, name, and note in
-`mivtzoim-data`.
-
-This is a deliberate tradeoff, chosen knowingly in favour of a login the
-non-technical user will actually use. It is written down so that whoever reads
-this later knows exactly what the password is and is not doing. Real protection
-needs the password checked somewhere the public cannot read — a small
-server-side function holding the token, or a backend service with its own
-accounts.
-
-If the token is ever exposed, revoke it on GitHub, delete `docs/vault.json`,
-and run setup again with a new token.
+The local password is not an access-control boundary against someone with
+access to the browser or its storage: the active token is still cached there.
 
 ## Data
 
@@ -225,8 +217,12 @@ A read that does not succeed is never rendered as an empty database — only a
 
 ```
 node tests/data.test.mjs      # 16 checks: model, CSV import, address keys, size
-node tests/entry.browser.mjs  # 65 checks: the real pages against a stubbed API
+node tests/entry.browser.mjs  # real pages against a stubbed API
 ```
 
 The browser test needs `playwright` available; it serves `docs/`, stubs every
 `api.github.com` call, and drives the real pages.
+
+**Live application API calls remain untested.** Every GitHub call in the
+browser suite is stubbed; these checks do not verify actual token permissions
+or real reads/writes to `mivtzoim-data`.

@@ -23,17 +23,16 @@ const TYPES = {
   '.png': 'image/png',
 };
 
-let vaultStore = null; // stands in for docs/vault.json once setup publishes it
+let publicVaultReads = 0;
+const publicRepoRequests = [];
 
 const server = http.createServer((req, res) => {
   const rel = decodeURIComponent(req.url.split('?')[0]);
   if (rel === '/vault.json') {
-    if (!vaultStore) {
-      res.writeHead(404).end('no vault');
-      return;
-    }
+    publicVaultReads++;
+    // A legacy public file must be ignored, even if a stale deployment has one.
     res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(vaultStore);
+    res.end(JSON.stringify({ v: 1, ct: 'legacy-public-vault' }));
     return;
   }
   const file = path.join(ROOT, rel === '/' ? 'index.html' : rel);
@@ -125,11 +124,9 @@ await ctx.route('https://api.github.com/**', async (route) => {
     return json(200, { full_name: 'yechezkelbinstok-dev/mivtzoim-data', private: true });
   }
 
-  if (url.includes('/mivtzoim/contents/docs/vault.json')) {
-    if (req.method() === 'GET') return json(404, { message: 'Not Found' });
-    const body = JSON.parse(req.postData());
-    vaultStore = Buffer.from(body.content, 'base64').toString('utf8');
-    return json(200, { content: { sha: 'vault1' } });
+  if (url.includes('/repos/yechezkelbinstok-dev/mivtzoim/')) {
+    publicRepoRequests.push({ method: req.method(), url });
+    return json(403, { message: 'Public repository access is forbidden' });
   }
 
   if (url.includes('/contents/db.json')) {
@@ -173,7 +170,7 @@ await page.waitForSelector('#gateOverlay:not([hidden])');
 check('the gate blocks the page before anyone is signed in');
 
 await page.waitForSelector('#setupRow:not([hidden])');
-check('first run asks for a token once, since no vault exists yet');
+check('first run in this browser asks for a token');
 
 await page.fill('#pwInput', PASSWORD);
 await page.fill('#setupToken', 'bad-token');
@@ -188,11 +185,24 @@ await page.click('#gateOk');
 await page.waitForSelector('#gateOverlay[hidden]', { state: 'attached' });
 check('setup succeeds and lets the page through');
 
-assert.ok(vaultStore, 'vault.json was published');
+const vaultStore = await page.evaluate(() => localStorage.getItem('mivtzoim_local_vault'));
+assert.ok(vaultStore, 'the vault was saved in this browser');
 const vaultJson = JSON.parse(vaultStore);
 assert.ok(vaultJson.ct && vaultJson.salt && vaultJson.iv, 'vault carries ciphertext');
 assert.ok(!vaultStore.includes('good-token'), 'the token is not stored in the clear');
-check('the token is published encrypted, never in plaintext');
+assert.equal(publicVaultReads, 0, 'setup must not fetch a public vault');
+assert.deepEqual(publicRepoRequests, [], 'setup must not publish to the public repo');
+check('setup keeps the encrypted vault local without public repository access');
+
+const freshCtx = await browser.newContext();
+await freshCtx.route('https://**', (route) => route.abort());
+const freshPage = await freshCtx.newPage();
+await freshPage.goto(base + '/index.html');
+await freshPage.waitForSelector('#gateOverlay:not([hidden])');
+await freshPage.waitForSelector('#setupRow:not([hidden])');
+assert.equal(await freshPage.evaluate(() => localStorage.getItem('mivtzoim_local_vault')), null);
+await freshCtx.close();
+check('a separate browser requires its own token even with a legacy public vault');
 
 // ---- 2. the seeded week renders ----
 await page.waitForFunction(() => document.querySelectorAll('.route-chip').length === 2);
@@ -403,14 +413,14 @@ const entered = await page.$$eval('.addr-row[data-entered="true"] .addr', (els) 
 assert.ok(entered.includes('101 First Street'));
 check('entered addresses stay marked after reload');
 
-// ---- 6b. the co-runner's path: password only, no token anywhere ----
+// ---- 6b. password sign-in using this browser's local vault ----
 await page.click('#settingsBtn');
 await page.waitForSelector('#settingsOverlay:not([hidden])');
 await page.click('#signOut'); // drops the token and the cached copy
 await page.reload();
 await page.waitForSelector('#gateOverlay:not([hidden])');
 assert.equal(await page.isHidden('#setupRow'), true, 'no token field once a vault exists');
-check('with a vault published, the gate asks for the password only');
+check('with a local vault, this browser asks for the password only');
 
 await page.fill('#pwInput', '11111');
 await page.click('#gateOk');
@@ -695,6 +705,10 @@ for (const pageName of ['index.html', 'dashboard.html', 'map.html']) {
   assert.equal((await page.request.get(`${base}/${touch}`)).status(), 200, 'touch icon is served');
 }
 check('every page carries an icon, and both icon files are really there');
+
+assert.equal(publicVaultReads, 0, 'no page may fetch the legacy public vault');
+assert.deepEqual(publicRepoRequests, [], 'no page may read or write the public repo');
+check('all pages leave the public vault and public repository untouched');
 
 assert.deepEqual(errors, [], `page errors: ${errors.join(' | ')}`);
 check('no page errors anywhere in the flow');
