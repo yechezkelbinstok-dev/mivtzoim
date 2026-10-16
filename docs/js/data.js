@@ -1,0 +1,282 @@
+// Address/visit data model, CSV import, and derived-status helpers.
+// Kept framework-free so it can be unit-checked directly (see js/data.test.js).
+
+export const CHAVRUSA_CODES = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח'];
+
+// Street-type abbreviations, so "100 Example Ave." and "100 Example Avenue"
+// are the same door. The paper generator and the shliach's list spell these
+// inconsistently, and without this each spelling becomes its own record and
+// quietly splits an address's history.
+const STREET_TYPES = {
+  ave: 'avenue',
+  av: 'avenue',
+  st: 'street',
+  rd: 'road',
+  dr: 'drive',
+  ln: 'lane',
+  pl: 'place',
+  ct: 'court',
+  blvd: 'boulevard',
+  ter: 'terrace',
+  terr: 'terrace',
+  cir: 'circle',
+  pkwy: 'parkway',
+  pky: 'parkway',
+  hts: 'heights',
+  sq: 'square',
+  trl: 'trail',
+  hwy: 'highway',
+};
+
+export function slugify(address) {
+  const words = String(address)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length) {
+    const last = words[words.length - 1];
+    if (STREET_TYPES[last]) words[words.length - 1] = STREET_TYPES[last];
+  }
+  return words.join('-');
+}
+
+function truthy(v) {
+  if (v == null) return false;
+  const s = String(v).trim().toUpperCase();
+  return s === 'Y' || s === 'YES' || s === 'TRUE' || s === '1';
+}
+
+// Minimal CSV parser: handles quoted fields and commas/newlines inside quotes.
+// Expects a header row. Returns array of row objects keyed by header.
+export function parseCsv(text) {
+  const rows = [];
+  let field = '';
+  let row = [];
+  let inQuotes = false;
+  let i = 0;
+  const pushField = () => {
+    row.push(field);
+    field = '';
+  };
+  const pushRow = () => {
+    pushField();
+    rows.push(row);
+    row = [];
+  };
+  const clean = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  while (i < clean.length) {
+    const c = clean[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (clean[i + 1] === '"') {
+          field += '"';
+          i += 2;
+          continue;
+        }
+        inQuotes = false;
+        i++;
+        continue;
+      }
+      field += c;
+      i++;
+      continue;
+    }
+    if (c === '"') {
+      inQuotes = true;
+      i++;
+      continue;
+    }
+    if (c === ',') {
+      pushField();
+      i++;
+      continue;
+    }
+    if (c === '\n') {
+      pushRow();
+      i++;
+      continue;
+    }
+    field += c;
+    i++;
+  }
+  if (field.length > 0 || row.length > 0) pushRow();
+  const nonEmpty = rows.filter((r) => r.some((f) => f.trim() !== ''));
+  if (nonEmpty.length === 0) return [];
+  const header = nonEmpty[0].map((h) => h.trim());
+  return nonEmpty.slice(1).map((r) => {
+    const obj = {};
+    header.forEach((h, idx) => (obj[h] = (r[idx] ?? '').trim()));
+    return obj;
+  });
+}
+
+// Builds a currentWeek block + upserts address metadata (list membership)
+// from parsed door_log.csv rows. Does NOT touch visit history — results are
+// only appended when someone actually enters them via recordVisit().
+export function importWeek(db, rows, weekId) {
+  const routes = {};
+  const addressIds = [];
+  for (const r of rows) {
+    const address = (r.address || '').trim();
+    if (!address) continue;
+    const id = slugify(address);
+    const chavrusa = (r.chavrusa || '').trim();
+    const bochurim = (r.bochurim || '').trim();
+
+    let existing = db.addresses.find((a) => a.id === id);
+    if (!existing) {
+      existing = {
+        id,
+        address,
+        on_shliach_list: truthy(r.on_shliach_list),
+        name_on_list: (r.name_on_list || '').trim(),
+        last_route: chavrusa,
+        visits: [],
+      };
+      db.addresses.push(existing);
+    } else {
+      if (truthy(r.on_shliach_list)) existing.on_shliach_list = true;
+      if ((r.name_on_list || '').trim()) existing.name_on_list = r.name_on_list.trim();
+      if (chavrusa) existing.last_route = chavrusa;
+    }
+
+    if (chavrusa) {
+      if (!routes[chavrusa]) routes[chavrusa] = { bochurim, addressIds: [] };
+      routes[chavrusa].addressIds.push(id);
+    }
+    addressIds.push(id);
+  }
+  db.currentWeek = {
+    weekId,
+    importedAt: new Date().toISOString(),
+    routes,
+    entered: {},
+  };
+
+  // The pair's names are recorded once for the week rather than copied onto
+  // every visit. At ~900 doors a week the duplication was the single largest
+  // thing in the file.
+  if (!db.weeks) db.weeks = {};
+  db.weeks[weekId] = Object.fromEntries(
+    Object.keys(routes).map((code) => [code, routes[code].bochurim || ''])
+  );
+  return db;
+}
+
+// The pair who walked a given visit. Reads the per-week record, falling back
+// to a bochurim field on the visit itself for data written before the split.
+export function bochurimFor(db, visit) {
+  if (!visit) return '';
+  const week = db.weeks && db.weeks[visit.week];
+  if (week && week[visit.chavrusa]) return week[visit.chavrusa];
+  return visit.bochurim || '';
+}
+
+// Adds an address that wasn't on the printed route (a shliach's-list entry,
+// or a door that turned out to matter). Returns the existing record if the
+// address is already known. `chavrusa` optionally files it into a route of
+// the current week.
+export function addAddress(db, address, { chavrusa = '', on_shliach_list = false, name_on_list = '' } = {}) {
+  const text = String(address).trim();
+  if (!text) throw new Error('empty address');
+  const id = slugify(text);
+  let addr = db.addresses.find((a) => a.id === id);
+  if (!addr) {
+    addr = {
+      id,
+      address: text,
+      on_shliach_list: !!on_shliach_list,
+      name_on_list: name_on_list || '',
+      last_route: chavrusa,
+      visits: [],
+    };
+    db.addresses.push(addr);
+  }
+  const week = db.currentWeek;
+  if (week && chavrusa) {
+    if (!week.routes[chavrusa]) week.routes[chavrusa] = { bochurim: '', addressIds: [] };
+    if (!week.routes[chavrusa].addressIds.includes(id)) {
+      week.routes[chavrusa].addressIds.push(id);
+    }
+    addr.last_route = chavrusa;
+  }
+  return addr;
+}
+
+// Appends/updates this week's visit result for one address and marks it
+// entered in currentWeek. `result` = { still_there, answered, jewish, interest,
+// notes } with answered/jewish as true/false/null, still_there as
+// true/false/'no_answer'/null, and interest as 'none'|'some'|'a_lot'|null.
+export function recordVisit(db, addressId, result) {
+  const addr = db.addresses.find((a) => a.id === addressId);
+  if (!addr) throw new Error(`unknown address id: ${addressId}`);
+  const week = db.currentWeek;
+  const weekId = week ? week.weekId : new Date().toISOString().slice(0, 10);
+  const chavrusa = week ? findRouteFor(week, addressId) : null;
+
+  const existing = addr.visits.find((v) => v.week === weekId);
+  const visit = {
+    date: new Date().toISOString().slice(0, 10),
+    week: weekId,
+    chavrusa: chavrusa || (existing && existing.chavrusa) || '',
+    // Shliach's-list doors are not scored on answered/Jewish/interest. The
+    // question that matters for a decades-old list is whether the household is
+    // still at the address.
+    still_there: result.still_there ?? null,
+    answered: result.answered ?? null,
+    jewish: result.jewish ?? null,
+    interest: result.interest ?? null,
+    notes: result.notes || '',
+  };
+  if (existing) {
+    Object.assign(existing, visit);
+  } else {
+    addr.visits.push(visit);
+  }
+  if (week) week.entered[addressId] = true;
+  return addr;
+}
+
+function findRouteFor(week, addressId) {
+  for (const code of Object.keys(week.routes || {})) {
+    if (week.routes[code].addressIds.includes(addressId)) return code;
+  }
+  return null;
+}
+
+export function latestVisit(addr) {
+  if (!addr.visits.length) return null;
+  return addr.visits.reduce((a, b) => (a.date > b.date ? a : b));
+}
+
+export function daysSince(dateStr) {
+  const then = new Date(dateStr + 'T00:00:00');
+  const now = new Date();
+  return Math.floor((now - then) / 86400000);
+}
+
+// Either it has been knocked or it hasn't. Time-since buckets were more
+// precision than the work needs; the last-visit date is in the row already.
+export function coverageStatus(addr) {
+  return latestVisit(addr) ? 'visited' : 'never';
+}
+
+// Whether a door is worth carrying forward past the week it was walked.
+//
+// The addresses on a printed route are a scratch list: every door on a street,
+// generated so a chavrusa has something to walk. Most of them are nobody, the
+// routes often go unfinished, and next week's sheets may cover somewhere else
+// entirely. They are not a standing list of houses to revisit.
+//
+// What survives the week is the shliach's list, plus any cold door that turned
+// out to be worth remembering — a Jewish household, any interest at all, or
+// something written down about it.
+export function isKept(addr) {
+  if (addr.on_shliach_list) return true;
+  return addr.visits.some(
+    (v) => v.jewish === true || v.interest || (v.notes && v.notes.trim())
+  );
+}
